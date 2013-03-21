@@ -1,0 +1,164 @@
+#
+#
+#	A form definiation for the "chmod" command
+#
+fieldspec +fieldtype rest \
+	+label Files/Directories \
+	+hinttext "Files/directories" \
+	+helptext \
+"The identified files and directories will be listed" \
+	+displaylevel simple \
+	ls.files
+
+fieldspec +fieldtype flag \
+		+label "Display" \
+		+values "" "-a" "-A" \
+		+displayvalues "" "All" "All not . or .." \
+		+hinttext "When recursing whether to follow symbolic links" \
+		+displaylevel advanced \
+		ls.all
+
+fieldspec +fieldtype flag \
+		+label "Symbolic Links" \
+		+values "" "-H" "-L" "-P" \
+		+displayvalues "" \
+			"Show target if on command line" \
+			"Show Target" \
+			 "Show Link" \
+		+hinttext "When recursing whether to show symbolic link or target" \
+		+displaylevel advanced \
+		ls.symboliclinks
+
+fieldspec +fieldtype flag \
+		+label "Non Printables" \
+		+values "" "-v" "-w" "-b" "-B" "-q" \
+		+displayvalues "" \
+				"Untranslated" \
+				"Raw" \
+				"As control sequences"\
+				"As \\xxx"\
+				"As ?"\
+		+hinttext "Form for display of  non-printable characters" \
+		+displaylevel advanced \
+		ls.nonprintables
+
+fieldspec +fieldtype flag \
+		+label "Recursive" \
+		+values "" "-R" \
+		+displayvalues "" \
+				"Recursive"\
+		+hinttext "Perform actions to all directories and their contents" \
+		+displaylevel general \
+		ls.recursively
+
+fieldspec +fieldtype flag \
+		+label "Directories" \
+		+values "" "-d" \
+		+displayvalues "Contents" \
+				"Entry"\
+		+hinttext "Display directory contents or entry details" \
+		+displaylevel general \
+		ls.dir
+
+fieldspec +fieldtype flag \
+		+label "Embelish" \
+		+values "" -p "-F"  \
+		+displayvalues "" \
+				"Directories" \
+				"Directories/Links/Executables"\
+		+hinttext "" \
+		+displaylevel advanced \
+		ls.embelish
+
+fieldspec +fieldtype flag \
+		+label "Time" \
+		+values "" "-Tl" "-ul" "-cl"  \
+		+displayvalues "" \
+				"Show Full Time"\
+				"Show last accessed time"\
+				"Show last changed time"\
+		+hinttext "Format of time" \
+		+displaylevel advanced \
+		ls.time
+
+fieldspec +fieldtype flag \
+		+label "Size" \
+		+values "" "-h" "-sk" "-s"  \
+		+displayvalues "" \
+				"Show Units"\
+				"File allocation in 1-k blocks"\
+				"File allocation in blocks"\
+		+hinttext "Format of size" \
+		+displaylevel advanced \
+		ls.size
+
+fieldspec +fieldtype flag \
+		+label "Sort" \
+		+values "" "-r" "-f"  \
+		+displayvalues "Normal" \
+				"Reversed"\
+				"Unsorted"\
+		+hinttext "Output sorting order" \
+		+displaylevel general \
+		ls.sort
+
+fieldspec +fieldtype flag \
+		+label "UID/GID" \
+		+values "" "-nl" \
+		+displayvalues "Name"\
+				"Numeric"\
+		+hinttext "Output sorting order" \
+		+displaylevel general \
+		ls.uidgid
+
+fieldspec +fieldtype flag \
+		+label "Inode Number " \
+		+values "" "-i" \
+		+displayvalues "" \
+				"Display"\
+		+hinttext "Display the file serial number or i-node" \
+		+displaylevel advanced \
+		ls.inode
+
+fieldspec +fieldtype flag \
+		+label "Display Layout " \
+		+values "" "-1" "-m" "-x" "-C" \
+		+displayvalues "" \
+				"Single Column"\
+				"Across the page"\
+				"Multi column sorted across"\
+				"Multi column sorted down"\
+		+hinttext "Display the file serial number or i-node" \
+		+displaylevel advanced \
+		ls.layout
+
+formspec +screenfieldlist \
+		ls.files  \
+		ls.all  \
+		ls.symboliclinks  \
+		ls.nonprintables  \
+		ls.recursively  \
+		ls.dir  \
+		ls.embelish  \
+		ls.time  \
+		ls.size  \
+		ls.uidgid  \
+		ls.sort  \
+		ls.inode  \
+		ls.layout  \
+		+generationfieldlist \
+		ls.all  \
+		ls.symboliclinks  \
+		ls.nonprintables  \
+		ls.recursively  \
+		ls.dir  \
+		ls.embelish  \
+		ls.time  \
+		ls.size  \
+		ls.uidgid  \
+		ls.sort  \
+		ls.inode  \
+		ls.layout  \
+		ls.files  \
+		+command ls \
+		+formname ls

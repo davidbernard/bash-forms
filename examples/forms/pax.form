@@ -1,0 +1,207 @@
+#
+#
+#	A form definiation for the "date" command
+#
+fieldspec +fieldtype positional\
+	+label "Operation" \
+	+values "" "-r" "-w" "-r -w" \
+	+displayvalues "List" "Read" "Write" "Copy" \
+	+hinttext "Operation to perform" \
+	+displaylevel general \
+	pax.operation
+
+fieldspec +fieldtype flag\
+	+label "Position" \
+	+values "" "-a" \
+	+displayvalues "Overwrite" "Append"
+	+hinttext "When writing whether to append to end of file/device" \
+	+displaylevel general \
+	pax.append
+
+fieldspec +fieldtype flagwithvalue\
+	+label "Block Size" \
+	+flag "-b"\
+	+hinttext "Block size for output" \
+	+displaylevel advanced \
+	pax.blocksize.cbs
+
+fieldspec +fieldtype flag\
+	+label "Pattern" \
+	+values "" "-c" \
+	+displayvalues "Include Matches" "Exclude Matches" \
+	+hinttext "Use patterns to include or exclude" \
+	+displaylevel general \
+	pax.pattern
+
+fieldspec +fieldtype flag\
+	+label "Directories" \
+	+values "" "-d" \
+	+displayvalues "Copy Contents" "Copy Directory Only" \
+	+hinttext "Directory handling" \
+	+displaylevel general \
+	pax.directories
+
+
+fieldspec +fieldtype flagwithvalue\
+	+label "Archive" \
+	+flag "-f"\
+	+hinttext "Name of archive" \
+	+displaylevel simple \
+	pax.archive
+
+fieldspec +fieldtype flag \
+		+label "Diagnostic" \
+		+values "" "-v" "-i" \
+		+displayvalues "Normal" \
+				"Verbose"\
+				"Prompt"\
+		+hinttext "Display level for diagnostic messages" \
+		+displaylevel general \
+		pax.diagnostic
+
+fieldspec +fieldtype flag \
+		+label "Target Exists" \
+		+values "" "-u" "-D" "-k" \
+		+displayvalues "Overwrite" "Replace Older (file flags)" "Replace Older (inode flags)" "Don't Copy"  \
+		+hinttext "Overwrite existing files" \
+		+displaylevel advanced \
+		pax.reuse
+
+fieldspec +fieldtype flag \
+		+label "Link" \
+		+values "" "-l" \
+		+displayvalues "Never" "Where possible" \
+		+hinttext "Create hard links in destination rather than copy" \
+		+displaylevel advanced \
+		pax.links
+
+fieldspec +fieldtype flag\
+	+label "Match" \
+	+values "" "-n" \
+	+displayvalues "Last" "First" \
+	+hinttext "If more than one matching file use last or first match" \
+	+displaylevel general \
+	pax.dupes
+
+fieldspec +fieldtype flagwithvalue\
+	+label "Archive Options" \
+	+flag "-o" \
+	+hinttext "Options specific to archive type" \
+	+displaylevel advanced \
+	pax.archiveoptions
+
+
+# XXXXX
+fieldspec +fieldtype flagwithvalue\
+	+label "Attribute Preservation" \
+	+flag "-p" \
+	+values "a" "e" "m" "o" "p" 
+	+displayvalues "Donot Preserve Access Time" "Preserve Everything" \
+		"Donot Preserve Modification Times" \
+		"Preserve User ID and Group ID" \
+		"Preserve File Mode Bits"\
+	+hinttext "Preservation of file attributes" \
+	+displaylevel advanced \
+	pax.attributes
+
+fieldspec +fieldtype flagwithvalue\
+	+label "Filename Translation Pattern" \
+	+flag "-s" \
+	+hinttext "/old/new/[gp] pattern for translating file names" \
+	+displaylevel advanced \
+	pax.translationpattern
+
+fieldspec +fieldtype flag\
+	+label "Modify Access Time" \
+	+values "" "-t" \
+	+displayvalues "As Accessed" "Preserve" \
+	+hinttext "Preserve access time of files copies" \
+	+displaylevel advanced \
+	pax.accesstime
+
+fieldspec +fieldtype flagwithvalue\
+	+label "Archive Type" \
+	+flag "-x" \
+	+values "" "cpio" "bcpio" "sv4cpio" "sv4crc" "tar" "ustar" \
+	+displayvalues "Default" "IEEE Std 1003.2 CPIO" "Old binary CPIO standard" "System V Release 4 CPIO" "System V Release 4 CPIO with checksums" "Old BSD TAR" "Extended TAR IEEE Std 1003.2" \
+	+hinttext "Archive type" \
+	+displaylevel advanced \
+	pax.archivetype
+
+fieldspec +fieldtype flagwithvalue\
+	+label "Max Archive Chunk" \
+	+flag "-B" \
+	+hinttext "When a device supports end of file " \
+	+displaylevel advanced \
+	pax.chunk
+
+fieldspec +fieldtype flagwithvalue\
+	+label "Error Retries" \
+	+flag "-E=" \
+	+hinttext "Number of read retries on read errors" \
+	+displaylevel advanced \
+	pax.errors
+
+fieldspec +fieldtype flagwithvalue\
+	+label "Error Handling" \
+	+flag "conv=" \
+	+values "" "noerror"  \
+	+displayvalues "Stop on error" "Continue on error"  \
+	+hinttext "Control error handling" \
+	+displaylevel advanced \
+	dd.noerror 
+
+
+fieldspec +fieldtype flagwithvalue\
+	+label "Truncation" \
+	+flag "conv=" \
+	+values "" "notrunc"  \
+	+displayvalues "Truncated Ouput File" "Donot truncate output file"  \
+	+hinttext "Control whether data in output file passed last record written is preserved" \
+	+displaylevel advanced \
+	dd.notrunc 
+
+fieldspec +fieldtype flagwithvalue\
+	+label "Swap Bytes" \
+	+flag "conv=" \
+	+values "" "swab"  \
+	+displayvalues "" "Swap pairs of bytes"  \
+	+hinttext "Swap odd and even bytes - discard last byte of odd sized blocks/records" \
+	+displaylevel advanced \
+	dd.swab 
+
+fieldspec +fieldtype flagwithvalue\
+	+label "Padding" \
+	+flag "conv=" \
+	+values "" "sync"  \
+	+displayvalues "" "Pad input records with spaces"  \
+	+hinttext "Pad input records to input block size" \
+	+displaylevel advanced \
+	dd.padding 
+
+fieldspec +fieldtype flagwithvalue\
+	+label "Last Block" \
+	+flag "conv=" \
+	+values "" "osync"  \
+	+displayvalues "" "Pad with spaces"  \
+	+hinttext "Pad last output block with spaces if required" \
+	+displaylevel advanced \
+	dd.lastblock 
+
+
+
+formspec +screenfieldlist \
+		+screenfieldlist \
+	dd.count dd.bs dd.if dd.of \
+	dd.ibs dd.obs dd.iseek dd.oseek dd.files \
+	dd.translate dd.cbs dd.convert dd.case dd.noerror dd.notrunc \
+	dd.swab dd.padding dd.lastblock  \
+		+generationfieldlist \
+	dd.count dd.bs dd.if dd.of \
+	dd.ibs dd.obs dd.iseek dd.oseek dd.files \
+	dd.translate dd.cbs dd.convert dd.case dd.noerror dd.notrunc \
+	dd.swab dd.padding dd.lastblock  \
+		+command dd \
+		+formname dd
+
+

@@ -1,0 +1,90 @@
+#
+#
+#	A form definiation for the "date" command
+#
+fieldspec +fieldtype flagwithvalue\
+	+label "Format" \
+	+flag "+"\
+	+hinttext "Format string for printing time (see strftime)" \
+	+helptext \
+"%a weekday name %b month name %c date/time %d day of month 01-31 %m month 01-12 %y year"\
+	+displaylevel general \
+	date.format
+
+fieldspec +fieldtype flag \
+	+label "Style" \
+	+hinttext "Display or set using local time zone or UTC "  \
+	+values "" "-u" \
+	+displayvalues "Local Time Zone" "UTC"  \
+	+displaylevel general \
+	date.style
+
+fieldspec +fieldtype flagwithvalue \
+	+flag "-r" \
+	+label "Epoch Seconds" \
+	+hinttext "Decode seconds from Epoch to date - cannot be used to set time"  \
+	+displaylevel advanced \
+	date.epoch
+
+fieldspec +fieldtype flag \
+	+label "Set" \
+	+hinttext "set all machines synced with timed or only this machine" \
+	+values "" "-n" \
+	+displayvalues "Local Machines" "This machine"\
+	+displaylevel advanced \
+	date.set
+
+fieldspec +fieldtype positional \
+		+label "Year" \
+		+hinttext "Year" \
+		+displaylevel advanced \
+		+separator "" \
+		date.years
+
+fieldspec +fieldtype positional \
+		+label "Month" \
+		+hinttext "01 to 12" \
+		+displaylevel advanced \
+		+separator "" \
+		date.month
+fieldspec +fieldtype positional \
+		+label "Day" \
+		+hinttext "01 to 31" \
+		+displaylevel advanced \
+		+separator "" \
+		date.day
+fieldspec +fieldtype positional \
+		+label "Hour" \
+		+hinttext "00 to 24" \
+		+displaylevel advanced \
+		+separator "" \
+		date.hour
+fieldspec +fieldtype positional \
+		+label "Minutes" \
+		+hinttext "00 to 59" \
+		+displaylevel advanced \
+		+separator "" \
+		date.minutes
+
+fieldspec +fieldtype positional \
+		+label "Seconds" \
+		+flag "." \
+		+hinttext "00 to 59" \
+		+displaylevel advanced \
+		+separator "" \
+		date.seconds
+
+formspec +screenfieldlist \
+			date.style date.format\
+			date.epoch \
+			date.set \
+			date.years date.month date.day date.hour date.minutes date.seconds \
+		+generationfieldlist \
+			date.style date.format \
+			date.set \
+			date.years date.month date.day date.hour date.minutes date.seconds \
+			date.epoch \
+		+command date \
+		+formname date
+
+

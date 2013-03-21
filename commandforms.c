@@ -78,9 +78,6 @@ typedef SHELL_VAR **SVFUNC ();
 extern char *strpbrk __P((char *, char *));
 #endif
 
-extern int array_needs_making;
-extern STRING_INT_ALIST word_token_alist[];
-extern char *signal_names[];
 
 #if defined (DEBUG)
 #if defined (PREFER_STDARG)
@@ -95,23 +92,7 @@ static char *preproc_filterpat __P((char *, char *));
 static void init_itemlist_from_varlist __P((ITEMLIST *, SVFUNC *));
 
 static STRINGLIST *gen_matches_from_itemlist __P((ITEMLIST *, const char *));
-static STRINGLIST *gen_action_completions __P((FIELDSPEC *, const char *));
-static STRINGLIST *gen_globpat_matches __P((FIELDSPEC *, const char *));
-static STRINGLIST *gen_wordlist_matches __P((FIELDSPEC *, const char *));
-static STRINGLIST *gen_shell_function_matches __P((FIELDSPEC *, const char *,
-						   char *, int, WORD_LIST *,
-						   int, int));
-static STRINGLIST *gen_command_matches __P((FIELDSPEC *, const char *, char *,
-					    int, WORD_LIST *, int, int));
 
-static char *pcomp_filename_completion_function __P((const char *, int));
-
-#if defined (ARRAY_VARS)
-static SHELL_VAR *bind_comp_words __P((WORD_LIST *));
-#endif
-static void bind_compfunc_variables __P((char *, int, WORD_LIST *, int, int));
-static void unbind_compfunc_variables __P((int));
-static WORD_LIST *command_line_to_word_list __P((char *, int, int, int *, int *));
 
 #ifdef DEBUG
 static int commandforms_debug = 1;
@@ -224,8 +205,8 @@ gen_matches_from_itemlist (itp, text)
   tlen = STRLEN (text);
   for (i = n = 0; i < sl->list_len; i++)
     {
-      if (tlen == 0 || STREQN (sl->list[i], text, tlen))
-	ret->list[n++] = STRDUP (sl->list[i]);
+      if (tlen == 0 || STREQN (sl->list[i], text, (size_t)tlen))
+          ret->list[n++] = STRDUP (sl->list[i]);
     }
   ret->list[ret->list_len = n] = (char *)NULL;
   return ret;

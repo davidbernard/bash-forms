@@ -145,10 +145,10 @@ static char *_rl_term_mm;
 static char *_rl_term_mo;
 
 /* The key sequences output by the arrow keys, if this terminal has any. */
-static char *_rl_term_ku;
-static char *_rl_term_kd;
-static char *_rl_term_kr;
-static char *_rl_term_kl;
+char *_rl_term_ku = 0;
+char *_rl_term_kd = 0;
+char *_rl_term_kr = 0;
+char *_rl_term_kl = 0;
 
 /* How to initialize and reset the arrow keys, if this terminal has any. */
 static char *_rl_term_ks;

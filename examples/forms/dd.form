@@ -1,0 +1,166 @@
+#
+#
+#	A form definiation for the "date" command
+#
+fieldspec +fieldtype flagwithvalue\
+	+label "Block Size" \
+	+flag "bs="\
+	+hinttext "Set both input and output block size in bytes" \
+	+displaylevel general \
+	dd.bs
+
+fieldspec +fieldtype flagwithvalue\
+	+label "Conversion record size" \
+	+flag "cbs="\
+	+hinttext "For record oriented values the conversion record size " \
+	+displaylevel advanced \
+	dd.cbs
+
+fieldspec +fieldtype flagwithvalue\
+	+label "Block Count" \
+	+flag "count="\
+	+hinttext "Number of blocks to process" \
+	+displaylevel general \
+	dd.count
+
+fieldspec +fieldtype flagwithvalue\
+	+label "File Count" \
+	+flag "files="\
+	+hinttext "Number of input files to process" \
+	+displaylevel general \
+	dd.files
+
+
+fieldspec +fieldtype flagwithvalue\
+	+label "Input block size" \
+	+flag "ibs="\
+	+hinttext "Input block size" \
+	+displaylevel advanced \
+	dd.ibs
+
+fieldspec +fieldtype flagwithvalue\
+	+label "Input File" \
+	+flag "if="\
+	+hinttext "Read input from this file instead of standard input" \
+	+displaylevel general \
+	dd.if
+
+fieldspec +fieldtype flagwithvalue\
+	+label "Input Seek" \
+	+flag "iseek=" \
+	+hinttext "Number of bloacks to seek input file" \
+	+displaylevel advanced \
+	dd.iseek 
+
+
+fieldspec +fieldtype flagwithvalue\
+	+label "Output Block Size" \
+	+flag "obs=" \
+	+hinttext "Ouput block size in bytes" \
+	+displaylevel advanced \
+	dd.obs 
+
+fieldspec +fieldtype flagwithvalue\
+	+label "Output File" \
+	+flag "of=" \
+	+hinttext "Output file instead of standard output" \
+	+displaylevel simple \
+	dd.of 
+
+fieldspec +fieldtype flagwithvalue\
+	+label "Output Seek" \
+	+flag "oseek=" \
+	+hinttext "Number of bloacks to seek output file" \
+	+displaylevel advanced \
+	dd.oseek 
+
+fieldspec +fieldtype flagwithvalue\
+	+label "Translate" \
+	+flag "conv=" \
+	+values "" "ascii" "oldascii" "ebcdic" "ibm" "oldebcdic" "oldibm" \
+	+displayvalues "" "To ASCII" "To ASCII (pre sys5)" "To EBCIDIC" "To EBCDIC (sys5)" "To EBCDIC (pre sys5)" "To EBCDIC (alt pre sys5)" \
+	+hinttext "Translate between EBCDIC and ASCII" \
+	+displaylevel advanced \
+	dd.translate 
+
+fieldspec +fieldtype flagwithvalue\
+	+label "Convert" \
+	+flag "conv=" \
+	+values "" "block" "unblock" \
+	+displayvalues "" "From Records To Blocks" "From Blocks To Records" \
+	+hinttext "Between \"Records\" delimited by new-line and "blocks" padding with spaces" \
+	+displaylevel advanced \
+	dd.convert 
+
+fieldspec +fieldtype flagwithvalue\
+	+label "Convert Case" \
+	+flag "conv=" \
+	+values "" "lcase" "ucase" \
+	+displayvalues "" "To lowercase" "tO UPPPERCASE" \
+	+hinttext "Convert all to lowercase or all to upppercase" \
+	+displaylevel advanced \
+	dd.case 
+
+fieldspec +fieldtype flagwithvalue\
+	+label "Error Handling" \
+	+flag "conv=" \
+	+values "" "noerror"  \
+	+displayvalues "Stop on error" "Continue on error"  \
+	+hinttext "Control error handling" \
+	+displaylevel advanced \
+	dd.noerror 
+
+
+fieldspec +fieldtype flagwithvalue\
+	+label "Truncation" \
+	+flag "conv=" \
+	+values "" "notrunc"  \
+	+displayvalues "Truncated Ouput File" "Donot truncate output file"  \
+	+hinttext "Control whether data in output file passed last record written is preserved" \
+	+displaylevel advanced \
+	dd.notrunc 
+
+fieldspec +fieldtype flagwithvalue\
+	+label "Swap Bytes" \
+	+flag "conv=" \
+	+values "" "swab"  \
+	+displayvalues "" "Swap pairs of bytes"  \
+	+hinttext "Swap odd and even bytes - discard last byte of odd sized blocks/records" \
+	+displaylevel advanced \
+	dd.swab 
+
+fieldspec +fieldtype flagwithvalue\
+	+label "Padding" \
+	+flag "conv=" \
+	+values "" "sync"  \
+	+displayvalues "" "Pad input records with spaces"  \
+	+hinttext "Pad input records to input block size" \
+	+displaylevel advanced \
+	dd.padding 
+
+fieldspec +fieldtype flagwithvalue\
+	+label "Last Block" \
+	+flag "conv=" \
+	+values "" "osync"  \
+	+displayvalues "" "Pad with spaces"  \
+	+hinttext "Pad last output block with spaces if required" \
+	+displaylevel advanced \
+	dd.lastblock 
+
+
+
+formspec +screenfieldlist \
+		+screenfieldlist \
+	dd.count dd.bs dd.if dd.of \
+	dd.ibs dd.obs dd.iseek dd.oseek dd.files \
+	dd.translate dd.cbs dd.convert dd.case dd.noerror dd.notrunc \
+	dd.swab dd.padding dd.lastblock  \
+		+generationfieldlist \
+	dd.count dd.bs dd.if dd.of \
+	dd.ibs dd.obs dd.iseek dd.oseek dd.files \
+	dd.translate dd.cbs dd.convert dd.case dd.noerror dd.notrunc \
+	dd.swab dd.padding dd.lastblock  \
+		+command dd \
+		+formname dd
+
+

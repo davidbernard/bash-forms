@@ -179,6 +179,7 @@ opt_coproc=yes
 opt_arith_for_command=yes
 opt_net_redirs=yes
 opt_progcomp=yes
+opt_commandforms=yes
 opt_separate_help=no
 opt_multibyte=yes
 opt_debugger=yes
@@ -203,7 +204,7 @@ if test $opt_minimal_config = yes; then
 	opt_select=no opt_help=no opt_array_variables=no opt_dparen_arith=no
 	opt_brace_expansion=no opt_disabled_builtins=no opt_command_timing=no
 	opt_extended_glob=no opt_cond_command=no opt_arith_for_command=no
-	opt_net_redirs=no opt_progcomp=no opt_separate_help=no
+	opt_net_redirs=no opt_progcomp=no opt_commanmdforms=no opt_separate_help=no
 	opt_multibyte=yes opt_cond_regexp=no opt_coproc=no
 	opt_casemod_attrs=no opt_casemod_expansions=no opt_extglob_default=no
 fi
@@ -232,6 +233,7 @@ AC_ARG_ENABLE(multibyte, AC_HELP_STRING([--enable-multibyte], [enable multibyte 
 AC_ARG_ENABLE(net-redirections, AC_HELP_STRING([--enable-net-redirections], [enable /dev/tcp/host/port redirection]), opt_net_redirs=$enableval)
 AC_ARG_ENABLE(process-substitution, AC_HELP_STRING([--enable-process-substitution], [enable process substitution]), opt_process_subst=$enableval)
 AC_ARG_ENABLE(progcomp, AC_HELP_STRING([--enable-progcomp], [enable programmable completion and the complete builtin]), opt_progcomp=$enableval)
+AC_ARG_ENABLE(commandforms, AC_HELP_STRING([--enable-commandforms], [enable command forms and the form, formspec, fieldspec builtin]), opt_commandforms=$enableval)
 AC_ARG_ENABLE(prompt-string-decoding, AC_HELP_STRING([--enable-prompt-string-decoding], [turn on escape character decoding in prompts]), opt_prompt_decoding=$enableval)
 AC_ARG_ENABLE(readline, AC_HELP_STRING([--enable-readline], [turn on command line editing]), opt_readline=$enableval)
 AC_ARG_ENABLE(restricted, AC_HELP_STRING([--enable-restricted], [enable a restricted shell]), opt_restricted=$enableval)
@@ -320,6 +322,9 @@ AC_DEFINE(NETWORK_REDIRECTIONS)
 fi
 if test $opt_progcomp = yes; then
 AC_DEFINE(PROGRAMMABLE_COMPLETION)
+fi
+if test $opt_commandforms = yes; then
+AC_DEFINE(COMMAND_FORMS)
 fi
 if test $opt_multibyte = no; then
 AC_DEFINE(NO_MULTIBYTE_SUPPORT)

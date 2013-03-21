@@ -50,11 +50,14 @@ static void fieldspec_free __P((PTR_T));
 static void formspec_free __P((PTR_T));
 
 
+static void fieldspec_dispose __P(( FIELDSPEC *));
+
+static int fieldspec_flushfree __P(( BUCKET_CONTENTS *));
 /*
 	Create a new field spec 
  */
 FIELDSPEC *
-fieldspec_create (void)
+fieldspec_create ()
 {
   FIELDSPEC *ret;
 
@@ -69,7 +72,7 @@ fieldspec_create (void)
  */
 
 FORMSPEC *
-formspec_create (void)
+formspec_create ()
 {
   FORMSPEC *ret;
 
@@ -83,7 +86,8 @@ formspec_create (void)
 	Dispose of a fieldspec based on reference count
  */
 static void
-fieldspec_dispose ( FIELDSPEC *cs)
+fieldspec_dispose (cs)
+	FIELDSPEC *cs;
 {
   cs->refcount--;
   if (cs->refcount == 0)
@@ -103,6 +107,11 @@ fieldspec_dispose ( FIELDSPEC *cs)
 		 FREE(cs->displayvalues[0]);
 		 FREE(cs->displayvalues);
 	  }
+	  if ( cs->displaylevels )
+	  {
+		 FREE(cs->displaylevels[0]);
+		 FREE(cs->displaylevels);
+	  }
 	  FREE(cs->compspec);
 	  FREE(cs->separator);
       free (cs);
@@ -113,7 +122,8 @@ fieldspec_dispose ( FIELDSPEC *cs)
 	Displose of a form spec
  */
 void
-formspec_dispose (FORMSPEC *form)
+formspec_dispose (form)
+	FORMSPEC *form;
 {
 	FORMFIELDSPEC **l;
 
@@ -129,6 +139,11 @@ formspec_dispose (FORMSPEC *form)
 	 for(l=form->generationfieldlist; *l; l++)
 	  {
 		  free(*l);
+	  }
+	  if ( form->displaylevels )
+	  {
+		 FREE(form->displaylevels[0]);
+		 FREE(form->displaylevels);
 	  }
 	
 	/*
@@ -146,7 +161,7 @@ formspec_dispose (FORMSPEC *form)
 	Create the formspecs hash is required
  */
 void
-fieldspecs_create (void)
+fieldspecs_create ()
 {
   if (fieldspecs == 0)
     fieldspecs = hash_create (FIELDSPEC_HASH_BUCKETS);
@@ -165,7 +180,7 @@ formspecs_create ()
 	Return size of fieldspecs hash
  */
 int
-fieldspecs_size (void)
+fieldspecs_size ()
 {
   return (HASH_ENTRIES (fieldspecs));
 }
@@ -174,7 +189,7 @@ fieldspecs_size (void)
 	Return size of formspec hash
 */
 int
-formspecs_size (void)
+formspecs_size ()
 {
   return (HASH_ENTRIES (formspecs));
 }
@@ -182,7 +197,8 @@ formspecs_size (void)
 	Free fieldspec
  */
 static void
-fieldspec_free ( PTR_T data)
+fieldspec_free (data)
+	PTR_T data;
 {
   FIELDSPEC *cs;
 
@@ -190,7 +206,8 @@ fieldspec_free ( PTR_T data)
   fieldspec_dispose (cs);
 }
 static int
-fieldspec_flushfree ( BUCKET_CONTENTS *item)
+fieldspec_flushfree (item)
+	BUCKET_CONTENTS *item;
 {
 	FIELDSPEC *cs;
 
@@ -207,7 +224,8 @@ return 1;
 	Free a formspec
  */
 static void
-formspec_free ( PTR_T data)
+formspec_free (data)
+	PTR_T data;
 {
 	FORMSPEC *cs;
 
@@ -220,14 +238,14 @@ formspec_free ( PTR_T data)
 	if not used.
  */
 void
-fieldspecs_flush (void)
+fieldspecs_flush ()
 {
   if (fieldspecs)
 	  hash_walk (fieldspecs, fieldspec_flushfree);
 }
 
 void
-formspecs_flush (void)
+formspecs_flush ()
 {
   if (formspecs)
     hash_flush (formspecs, formspec_free);
@@ -236,7 +254,7 @@ formspecs_flush (void)
 	Dispose of all the field spec hash entries
  */
 void
-fieldspecs_dispose (void)
+fieldspecs_dispose ()
 {
   if (fieldspecs)
     hash_dispose (fieldspecs);
@@ -247,7 +265,7 @@ fieldspecs_dispose (void)
 	Dispose of all the field spec hash entries
  */
 void
-formspecs_dispose (void)
+formspecs_dispose ()
 {
   if (formspecs)
     hash_dispose (formspecs);
@@ -257,7 +275,8 @@ formspecs_dispose (void)
 	Remove a fieldspec from the fieldspec hash and free the fieldspec
  */
 int
-fieldspec_remove ( char *cmd)
+fieldspec_remove (cmd)
+	char *cmd;
 {
   register BUCKET_CONTENTS *item;
   FIELDSPEC *cs;
@@ -290,7 +309,8 @@ fieldspec_remove ( char *cmd)
 	Remove a formspec from the formspec hash and free the formspec
  */
 int
-formspec_remove ( char *cmd)
+formspec_remove ( cmd)
+	char *cmd;
 {
   register BUCKET_CONTENTS *item;
 
@@ -309,7 +329,8 @@ formspec_remove ( char *cmd)
   return (0);
 }
 
-void fieldspec_retain( FIELDSPEC *cs)
+void fieldspec_retain(cs)
+	FIELDSPEC *cs;
 {
 	cs->refcount++;
 }
@@ -317,7 +338,9 @@ void fieldspec_retain( FIELDSPEC *cs)
 	Insert a new fieldspec into the fieldspec hash
  */
 int
-fieldspec_insert (char *cmd, FIELDSPEC *fs)
+fieldspec_insert (cmd, fs)
+	char *cmd;
+	FIELDSPEC *fs;
 {
   register BUCKET_CONTENTS *item;
 
@@ -338,7 +361,9 @@ fieldspec_insert (char *cmd, FIELDSPEC *fs)
 	Insert a new formspec into the formspec hash
  */
 int
-formspec_insert ( char *cmd, FORMSPEC *cs)
+formspec_insert ( cmd, cs)
+	char *cmd;
+	FORMSPEC *cs;
 {
   register BUCKET_CONTENTS *item;
 
@@ -361,7 +386,8 @@ formspec_insert ( char *cmd, FORMSPEC *cs)
 	Locate a field spec via the fieldspec hash
  */
 FIELDSPEC *
-fieldspec_search ( const char *cmd)
+fieldspec_search ( cmd )
+	const char *cmd;
 {
   register BUCKET_CONTENTS *item;
   FIELDSPEC *cs;
@@ -383,7 +409,8 @@ fieldspec_search ( const char *cmd)
 	Locate a formspec  via the fieldspec hash
  */
 FORMSPEC *
-formspec_search ( const char *cmd)
+formspec_search ( cmd )
+	const char *cmd;
 {
   register BUCKET_CONTENTS *item;
   FORMSPEC *cs;
@@ -404,7 +431,8 @@ formspec_search ( const char *cmd)
 	Walk the fieldspec hash calling for each entry a "helper" function
  */
 void
-fieldspecs_walk ( hash_wfunc *pfunc)
+fieldspecs_walk (pfunc)
+	hash_wfunc *pfunc;
 {
   if (fieldspecs == 0 || pfunc == 0 || HASH_ENTRIES (fieldspecs) == 0)
     return;
@@ -416,7 +444,8 @@ fieldspecs_walk ( hash_wfunc *pfunc)
 	Walk the fieldspec hash calling for each entry a "helper" function
  */
 void
-formspecs_walk ( hash_wfunc *pfunc)
+formspecs_walk (pfunc)
+	hash_wfunc *pfunc;
 {
   if (formspecs == 0 || pfunc == 0 || HASH_ENTRIES (formspecs) == 0)
     return;

@@ -1,0 +1,110 @@
+#
+#
+#	A form definiation for the "chmod" command
+#
+fieldspec +fieldtype flag \
+		+label "Display" \
+		+values "" "-ax" "-x"  \
+		+displayvalues "My Processes" "All processes" "Only daemons"  \
+		+hinttext "Which processes to display" \
+		+displaylevel simple \
+		ps.display
+
+fieldspec +fieldtype flag \
+		+label "Command Format" \
+		+values "" "-c" \
+		+displayvalues "Full Command Line" \
+				"Executable Name"\
+		+hinttext "Format of command column" \
+		+displaylevel advanced \
+		ps.commandformat
+
+fieldspec +fieldtype flag \
+		+label "CPU Calculation" \
+		+values "" "-C" \
+		+displayvalues "Resident" \
+				"Raw" \
+		+hinttext "How the CPU percentage is calculated" \
+		+displaylevel advanced \
+		ps.cpucalc
+
+fieldspec +fieldtype flag \
+		+label "Environment" \
+		+values "" "-e" \
+		+displayvalues "" \
+				"Display"\
+		+hinttext "Display environment" \
+		+displaylevel advanced \
+		ps.environment
+
+fieldspec +fieldtype flag \
+		+label "Header" \
+		+values "" "-h" \
+		+displayvalues "Once" \
+				"Repeat"\
+		+hinttext "Repeat the header to display one header per page" \
+		+displaylevel advanced \
+		ps.header
+
+fieldspec +fieldtype flag \
+		+label "Format" \
+		+values "" "-j" "-l" \
+		+displayvalues "" \
+				"user+job+state"\
+				"uid+vsz+rss"\
+		+hinttext "Display format" \
+		+displaylevel advanced \
+		ps.format
+
+
+fieldspec +fieldtype flagwithvalue \
+		+label "Columns" \
+		+flag "-O" \
+		+hinttext "Comma separated list of columns to display (eg flag,pid,tty)" \
+		+displaylevel advanced \
+		ps.columns
+
+fieldspec +fieldtype flagwithvalue \
+		+label "Process" \
+		+flag "-p" \
+		+hinttext "Select a particular process by pid" \
+		+displaylevel simple \
+		ps.pid
+
+fieldspec +fieldtype flagwithvalue \
+		+label "User" \
+		+flag "-U" \
+		+hinttext "Processes owned by a particular user" \
+		+displaylevel simple \
+		ps.user
+
+fieldspec +fieldtype flagwithvalue \
+		+label "Terminal" \
+		+flag "-t" \
+		+hinttext "Processes belowing to a particular terminal" \
+		+displaylevel advanced \
+		ps.terminal
+
+fieldspec +fieldtype flag \
+		+label "Sort Order" \
+		+values "" "-r" \
+		+displayvalues "Process ID" "CPU"   \
+		+hinttext "Sort order" \
+		+displaylevel advanced \
+		ps.sort
+
+fieldspec +fieldtype flag \
+		+label "CPU" \
+		+values "" "-S"  \
+		+displayvalues "This process" \
+				"Include child processes"\
+		+hinttext "Display CPU of this process or include terminated child processes" \
+		+displaylevel advanced \
+		ps.children
+
+formspec +screenfieldlist \
+		ps.display ps.commandformat ps.cpucalc ps.environment ps.header ps.format ps.columns ps.pid ps.user ps.terminal ps.sort ps.children \
+		+generationfieldlist \
+		ps.display ps.commandformat ps.cpucalc ps.environment ps.header ps.format ps.columns ps.pid ps.user ps.terminal ps.sort ps.children \
+		+command ps \
+		+formname ps

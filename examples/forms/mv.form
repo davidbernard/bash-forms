@@ -1,0 +1,46 @@
+#
+#
+#	A form definiation for the "mv" command
+#
+fieldspec +fieldtype uptolast \
+	+label "Files/Directories" \
+	+hinttext "Files/directories to move" \
+	+helptext \
+"The files/directories to move to the destination" \
+	+displaylevel simple \
+	mv.files
+
+fieldspec +fieldtype last \
+	+label "Destination" \
+	+hinttext "The new name or destination directory" \
+	+displaylevel simple \
+	mv.destination
+
+fieldspec +fieldtype flag \
+		+label "Target Exists" \
+		+values "" "-f" "-n" \
+		+displayvalues "Warn if read only" "Replace" "Don't Move"  \
+		+hinttext "If the file exists: Delete existing file or Create new file" \
+		+displaylevel advanced \
+		mv.reuse
+
+fieldspec +fieldtype flag \
+		+label "Diagnositic" \
+		+values "" "-v" "-i" \
+		+displayvalues "Normal" \
+				"Verbose"\
+				"Prompt"\
+		+hinttext "Display level for diagnostic messages" \
+		+displaylevel general \
+		mv.diagnostic
+
+formspec +screenfieldlist \
+			mv.files mv.destination \
+			mv.reuse mv.diagnostic \
+		+generationfieldlist \
+			mv.reuse mv.diagnostic \
+			mv.files mv.destination \
+		+command mv \
+		+formname mv
+
+

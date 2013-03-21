@@ -1,0 +1,61 @@
+#
+#
+#	A form definiation for the "ln" command
+#
+fieldspec +fieldtype uptolast \
+	+label "Files/Directories" \
+	+hinttext "Files/directories to copy" \
+	+helptext \
+"The files/directories to create links to" \
+	+displaylevel simple \
+	ln.files
+
+fieldspec +fieldtype last \
+	+label "Target" \
+	+hinttext "The name of the new link or destination directory for multiple links" \
+	+displaylevel simple \
+	ln.target
+
+fieldspec +fieldtype flag \
+		+label "Follow target symbolic link" \
+		+values "" "-h"  \
+		+displayvalues "" "Never" \
+		+hinttext "If target is symbolic link follow link" \
+		+displaylevel advanced \
+		ln.symboliclinks
+
+fieldspec +fieldtype flag \
+		+label "Target Exists" \
+		+values "" "-f" \
+		+displayvalues "Don't Create" "Delete File"  \
+		+hinttext "If the file exists: Unlink file and create link" \
+		+displaylevel advanced \
+		ln.force
+
+fieldspec +fieldtype flag \
+		+label "Link Type" \
+		+values "" "-s" \
+		+displayvalues "Hard" "Symbolic"  \
+		+hinttext "Create a hard file system link or a symbolic link" \
+		+displaylevel general \
+		ln.type
+
+fieldspec +fieldtype flag \
+		+label "Diagnositic" \
+		+values "" "-v"  \
+		+displayvalues "Normal" \
+				"Verbose"\
+		+hinttext "Display level for diagnostic messages" \
+		+displaylevel general \
+		ln.diagnostic
+
+formspec +screenfieldlist \
+			ln.files ln.target \
+			ln.symboliclinks ln.force ln.type ln.diagnostic \
+		+generationfieldlist \
+			ln.symboliclinks ln.force ln.type ln.diagnostic \
+			ln.files ln.target \
+		+command ln \
+		+formname ln
+
+

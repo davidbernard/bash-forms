@@ -21,12 +21,6 @@ Foundation, 59 Temple Place, Suite 330, Boston, MA 02111 USA.
 
 $PRODUCES commandforms.c
 
-$BUILTIN fieldspec
-$DEPENDS_ON COMMAND_FORMS
-$FUNCTION fieldspec_builtin
-$SHORT_DOC field_spec [-pr] +label <label> +fieldtype flag|flagwithvalue|positional|uptolast|last|rest [+hinttext <hint text>] [+helptext <help text>]  [+displaylevel simple|general|advanced] [ +compspec <compspec name> ] <fieldspec name> ...
-This command defines a type of field for display on a command form.
-$END
 
 #include <config.h>
 
@@ -55,23 +49,1787 @@ $END
 #include <readline/tcap.h>
 #endif
 
+
+#include "builtext.h"
+
+
 #define STRDUP(x)       ((x) ? savestring (x) : (char *)NULL)
 
+/* Forward References */
 
+static int string_list_contains __P((char **, char *));
 
 static int fieldspec_removeall __P((WORD_LIST *));
+static int fieldspec_print __P((char *, FIELDSPEC *));
+static int fieldspec_printitem __P((BUCKET_CONTENTS*));
+
 static int remove_formspecs __P((WORD_LIST *));
+static int formspec_print __P(( char *, FORMSPEC *));
+
 static void formspec_printall __P((void));
 static int formspec_printlist __P((WORD_LIST *));
+static int formspec_printitem __P((BUCKET_CONTENTS *));
+static int fieldspec_valueindex __P((FIELDSPEC *, char *));
+static int fieldspec_displayvalueindex __P((FIELDSPEC *, char *,	int ));
 static void fieldspec_printall __P((void));
 static int fieldspec_printlist __P((WORD_LIST *));
-static SCREENFORM *(screenform_init(FORMSPEC *form, char *label));
-static void screenform_layout(SCREENFORM *screenform);
-static void screenform_displayhinttext(SCREENFORM *screenform);
-static void screenform_draw(SCREENFORM *screenform);
-static void screenform_gotofield(SCREENFORM *screenform, SCREENFIELD *screenfield);
+
+static void screenfield_setwithindex __P((SCREENFIELD *, int ));
+static void screenfield_setwithvalue __P((SCREENFIELD *, char *value));
+static void screenfield_setwithdisplayvalue __P((SCREENFIELD *, char *, int));
+static void screenfield_appendtovalue __P((SCREENFIELD *, char *));
+
+static void screenform_populatefieldsfrompartialcommand __P((SCREENFORM *,WORD_LIST *));
+
+static int screenfield_generatedargumentlength __P((SCREENFIELD *screenfield));
+
+static int screenform_gotonextfield __P((SCREENFORM *screenform));
+static void screenform_gotopreviousfield __P((SCREENFORM *screenform));
+
+static char * screenfield_generateargument __P((SCREENFIELD *));
+
+static int local_output_char __P((int));
+
+static void screenform_gotofield __P((SCREENFORM *, SCREENFIELD *));
+static void screenform_hint __P((SCREENFORM *,char *));
+static void screenform_displayhinttext __P((SCREENFORM *));
+static void screenform_draw __P((SCREENFORM *));
+static void screenform_layout __P((SCREENFORM *));
+static SCREENFORM * screenform_init __P((FORMSPEC *, char *));
 
 
+/* static SCREENFORM *(screenform_init __P((FORMSPEC *form, char *label))); */
+
+static int cf_insert_or_cycle_screenfield __P((int,int));
+static int cf_right_arrow_key __P((int,int));
+static int cf_left_arrow_key __P((int,int));
+static int cf_up_arrow_key __P((int,int));
+static int cf_down_arrow_key __P((int,int));
+static int cf_redraw __P((int,int));
+static void cf_initialize_readline __P((void));
+
+static void cf_display_matches __P((char **,int, int));
+static char *cf_complete_return __P((const char *, int ));
+static char **cf_completion __P((const char *,int, int));
+
+static Keymap clone_keymap __P((Keymap));
+static void screenform_editscreenfield __P((SCREENFORM *));
+
+static int screenform_displayvalue __P((void));
+
+/* Static Variables */
+static int cf_readline_initialized = 0;
+static CF_EDIT_MODE cf_edit_mode = CF_MODE_FORM;
+static CF_EXECUTION_MODE cf_execution_mode = CF_MODE_DISPLAY;
+static Keymap cf_keymap;
+static rl_hook_func_t *old_rl_startup_hook = (rl_hook_func_t *)NULL;
+
+
+/*
+	Utility Functions
+*/
+
+/*
+	Return whether a string is in a list of strings 
+*/
+static int string_list_contains(list, string)
+char **list;
+char *string;
+{
+	while(*list)
+	{
+		if (strcmp(*list, string) == 0)
+			return 1;
+		list++;
+	}
+	return 0;
+}
+
+
+/*
+	Helper function to pass to tputs
+ */
+static int 
+local_output_char(c)
+	int c;
+{
+	return putc(c, stderr);
+}
+
+
+/*
+	Input processing functions
+*/
+
+/*
+ 	Process Right arrow key
+ */
+static int 
+cf_right_arrow_key(count, c)
+	int count;
+	int c;
+{
+	SCREENFIELD *screenfield ;
+
+	if ( cf_screenform )
+	{
+		screenfield = cf_screenform->currentscreenfield;
+		/* If value to display mapping */
+		if ( screenfield->fieldspec->valuescount > 1)
+		{
+			if ( screenfield->currentvalueindex < 
+					(screenfield->fieldspec->valuescount-1) )
+			{
+				screenfield_setwithindex(screenfield, 
+					screenfield->currentvalueindex + 1);
+			}
+			else
+			{
+				screenfield_setwithindex(screenfield, 
+					0);
+			}
+			rl_replace_line(screenfield->displayvalue, 0);
+			rl_point = rl_end;
+			rl_mark = 0;
+			return 0;
+		}
+#if defined(SELECTFROMCOMPLETION)
+		else if (screenfield->completionlist)
+		{
+			if ( screenfield->completioncurrentindex == -1 )
+			{
+				screenfield->completioncurrentindex = 
+					screenfield->completionstartindex;
+			}
+			else if ( screenfield->completioncurrentindex < 
+				(screenfield->completionlist->list_len - 1) )
+			{
+				screenfield->completioncurrentindex++;
+			}
+			screenfield_setwithdisplayvalue(screenfield,
+				screenfield->completionlist
+					->list[screenfield->completioncurrentindex]
+					, 0);
+			rl_replace_line(screenfield->displayvalue, 0);
+			rl_point = rl_end;
+			rl_mark = 0;
+			return 0;
+			
+		}
+#endif
+	}
+	/* Otherwise */
+	return rl_forward_char (count, c);    
+}
+
+/*
+ 	Process left  arrow key
+ */
+static int 
+cf_left_arrow_key(count, c)
+	int count;
+	int c;
+{
+	SCREENFIELD *screenfield;
+
+	if ( cf_screenform )
+	{
+		screenfield = cf_screenform->currentscreenfield;
+		/* If value to display mapping */
+		if ( screenfield->fieldspec->valuescount > 1)
+		{
+			if ( screenfield->currentvalueindex > 0  
+					)
+			{
+				screenfield_setwithindex(screenfield, 
+					screenfield->currentvalueindex - 1);
+			}
+			else
+			{
+				screenfield_setwithindex(screenfield, 
+					screenfield->fieldspec->valuescount - 1);
+			}
+			rl_replace_line(screenfield->displayvalue, 0);
+			rl_point = rl_end;
+			rl_mark = 0;
+			return 0;
+		}
+#if defined(SELECTFROMCOMPLETION)
+		else if (screenfield->completionlist)
+		{
+			if ( screenfield->completioncurrentindex == -1 )
+			{
+				screenfield->completioncurrentindex = 
+					screenfield->completionnextindex-1;
+			}
+			if ( screenfield->completioncurrentindex > 0)
+			{
+				screenfield->completioncurrentindex--;
+				screenfield_setwithdisplayvalue(screenfield,
+					screenfield->completionlist
+						->list[screenfield->completioncurrentindex]
+						, 0);
+				rl_replace_line(screenfield->displayvalue, 0);
+				rl_point = rl_end;
+				rl_mark = 0;
+				return 0;
+			}
+			
+		}
+#endif
+	}
+    return rl_backward_char (count, c);
+}
+
+/*
+	Process up arrow key
+	Set navigation to previous field and complete entry of the field.
+	
+ */
+static int 
+cf_up_arrow_key(count, c)
+	int count;
+	int c;
+{
+	if ( cf_screenform )
+	{
+		cf_screenform->nextnavigation = CF_PREVIOUS_FIELD;
+	}
+    return rl_newline (count, c);
+}
+
+/*
+	Process down arrow key
+	Set navigation to next field and complete entry of the field.
+	
+ */
+static int 
+cf_down_arrow_key(count, c)
+	int count;
+	int c;
+{
+	if ( cf_screenform )
+	{
+		cf_screenform->nextnavigation = CF_NEXT_FIELD;
+	}
+    return rl_newline (count, c);
+}
+
+/*
+ 	Process redraw key sequence - Ctrl L
+	Cycle display level and redraw the form
+ */
+static int 
+cf_redraw(count, c)
+	int count;
+	int c;
+{
+	if ( cf_screenform )
+	{
+		cf_screenform->nextnavigation = CF_REDRAW;
+	}
+    return rl_newline (count, c);
+}
+
+/*
+	Function to process a key key press. Called from the 
+	keymap table during readline.
+	The function either inserts the type character or if 
+	the field has a display value list, it navigates between 
+	displayvalue.
+ */
+static int cf_insert_or_cycle_screenfield (count, c)
+     int count;
+     int c;
+{
+	SCREENFIELD *screenfield ;
+	char buff[2];
+	int valueindex;
+	
+	buff[0] = (char)c;
+	buff[1] = '\0';
+
+
+	if ( cf_screenform )
+	{
+		screenfield = cf_screenform->currentscreenfield;
+		/* If value to display mapping */
+		if ( screenfield->fieldspec->valuescount > 1)
+		{
+			if ( c == ' ')
+			{
+				if ( screenfield->currentvalueindex == -1)
+				{
+					screenfield_setwithindex(screenfield, 0);
+				} 
+				else if ( screenfield->currentvalueindex < 
+						(screenfield->fieldspec->valuescount-1) )
+				{
+					screenfield_setwithindex(screenfield, 
+						screenfield->currentvalueindex + 1);
+				}
+				else
+				{
+					screenfield_setwithindex(screenfield, 
+						0);
+				}
+			}
+			else
+			{
+				/* Set with partial match */
+				valueindex = fieldspec_displayvalueindex(screenfield->fieldspec, 
+						buff, 1);
+				if ( valueindex != -1)
+				{
+					screenfield_setwithindex(screenfield, valueindex);
+				}
+				else
+				{
+					rl_ding();
+				}
+			}
+			rl_replace_line(screenfield->displayvalue, 0);
+			rl_point = rl_end;
+			rl_mark = 0;
+			return 0;
+		}
+	}
+
+	/* Otherwise */
+	return rl_insert(count, c);
+} 
+
+/*
+	Callback function call by display_matches (readline library) to display the 
+	possible matches on the hint line for automatic completion
+ */
+static void 
+cf_display_matches(matches, length, max)
+    char **matches; 
+    int length; 
+    int max;
+{
+	STRINGLIST *sl;
+	char *buff;
+	SCREENFIELD *screenfield;
+	SCREENFORM *screenform;
+	FIELDSPEC *field;
+	int i;
+	int len;
+
+	if ( ! cf_screenform )
+		return;
+
+	/* Context */
+	screenform = cf_screenform;
+	field = screenform->currentscreenfield->fieldspec;
+	screenfield = screenform->currentscreenfield;
+
+	/* Set up buffer */
+	buff = xmalloc((unsigned int)(screenform->width+1));
+	buff[0] = '\0';
+	len = 0;
+
+	/* First in list of displayed */
+	if ( screenfield->completionlist )
+	{
+		if ( screenfield->completionnextindex >= 
+					screenfield->completionlist->list_len )
+			screenfield->completionstartindex = 0;
+		else
+			screenfield->completionstartindex = 
+						screenfield->completionnextindex;
+		for ( i = screenfield->completionstartindex,
+				sl = screenfield->completionlist; i < sl->list_len; i++)
+		{
+			len += strlen(sl->list[i]) + 1;
+			if ( len >=  screenform->width )
+			{
+				break;
+			}
+			else
+			{
+				strcat(buff, sl->list[i]);
+				strcat(buff, " ");
+			}
+		}
+		screenfield->completionnextindex = i;
+	}
+	/* exit displaying buffer */
+	screenform_hint(screenform, buff);
+	free(buff);
+
+    rl_forced_update_display ();
+	
+}
+
+/*
+	Call by rl_completion_match (readline library) to pick up 
+	all possible completions
+ */
+static char *cf_complete_return(text, state)
+	const char *text; 
+	int state;
+{
+	static int valueindex = 0;
+	char *string;
+
+	if ( state == 0)
+		valueindex = 0;
+	
+	if ( cf_screenform && cf_screenform->currentscreenfield &&
+		cf_screenform->currentscreenfield->completionlist &&
+		valueindex < (cf_screenform->currentscreenfield
+				->completionlist->list_len ))
+	{
+		/* Not sure if we need to dupe here */
+			string = 
+				STRDUP(cf_screenform->currentscreenfield->completionlist->list[valueindex]);
+			valueindex ++;
+			return string;
+	}
+	else
+		return NULL;
+}
+
+/* 
+	Called via rl_attempted_completion global valiable
+	Calculates a list of possible matches and the lowest common denominator
+	and sets up if required the display of options on the hint line.
+ */
+static char **cf_completion(text, start, end)
+	const char *text;
+	int start;
+	int end;
+{
+	SCREENFIELD *screenfield;	
+	FIELDSPEC *field;
+	int newlist;
+	COMPSPEC *cs;
+	STRINGLIST *sl = NULL;
+	char **matches;
+	static char *value = NULL;
+
+	
+	/* Sanity check */
+	if ( ! cf_screenform )
+		return NULL;
+
+	/* Context */
+	screenfield = cf_screenform->currentscreenfield;
+
+	field = screenfield->fieldspec;
+
+	newlist = 1;
+
+	/* Locate */
+	if ( value )
+	{
+		if ( strcmp(value, text) != 0 )
+		{
+			/* Value changed so save new value */
+			free(value);
+			value = STRDUP(text);
+		}
+		else 
+		{
+			/* Display next from completion list */
+			newlist = 0;
+		}
+	}
+	else
+	{
+		value = STRDUP(text);
+	}
+
+	/* If newlist required then dispose of old list */
+	if ( newlist && screenfield->completionlist)
+	{
+		strlist_dispose(screenfield->completionlist);
+		screenfield->completionlist = 0;
+		screenfield->completioncurrentindex = -1;
+	}
+
+	if ( newlist || !screenfield->completionlist )
+	{
+    	/* FIXME what is found */
+    	int found = 0;
+		if ( field->compspec) {
+			cs = progcomp_search(field->compspec);
+			if ( cs ) {
+				sl = gen_compspec_completions(cs, "compgen", 
+						text, 0, 0, &found);
+			}
+			else
+			{
+				sl = NULL;
+				fprintf(stderr, "Invalid completion spec for field %s\n",
+					field->compspec);
+			}
+
+		}
+		else
+		{
+			/* No completion spec so files and directories */
+			cs = compspec_create();
+			cs->actions = CA_FILE | CA_DIRECTORY;
+			sl = gen_compspec_completions(cs, "compgen", 
+					text, 0, 0, &found);
+			compspec_dispose(cs);
+		}
+		screenfield->completionlist = sl  ;
+		screenfield->completionstartindex = 0  ;
+		screenfield->completionnextindex = 0  ;
+		screenfield->completioncurrentindex = -1  ;
+	}
+	else
+	{
+		screenfield->completionstartindex = screenfield->completionnextindex;
+		if ( screenfield->completionstartindex >= 
+				screenfield->completionlist->list_len )
+		{
+			screenfield->completionstartindex = 0;
+		}
+	}
+
+
+	/* */
+	matches = rl_completion_matches(text, cf_complete_return);
+	return matches;
+
+}
+
+/* 
+	Recursively clone a keymap. If an entry in a keymap is
+	a map entry that the function pointer is to a keymap. Clone
+	that keymap as well.
+*/
+static Keymap 
+clone_keymap(keymap)
+	Keymap keymap;
+{
+	Keymap new_keymap;
+	int i;
+
+	  new_keymap = rl_make_bare_keymap ();
+
+	  /* Copy each entry */
+	  for (i = 0; i < KEYMAP_SIZE; i++)
+		{
+		  /* Copy entry */
+		  new_keymap[i] = keymap[i];
+
+		  /* If the entry points to another map then
+		     clone that map */
+		  if ( new_keymap[i].type == ISKMAP)
+			{
+				/* Warning: Recursive call */
+				new_keymap[i].function =
+					(rl_command_func_t *)
+						(clone_keymap((Keymap)(keymap[i].function)));
+			}
+		}
+	  return (new_keymap);
+
+}
+
+/*
+	Initialise the keymap to be used for form input by cloning
+	the current keymap
+ */
+/* External references to readline globals */
+extern char * _rl_term_ku;
+extern char * _rl_term_kd;
+extern char * _rl_term_kr;
+extern char * _rl_term_kl;
+
+static void 
+cf_initialize_readline()
+{
+	static Keymap base_keymap = NULL;
+	Keymap current_keymap;
+	int i;
+
+
+	current_keymap = rl_get_keymap();
+
+	/* if base keymap still current - do nothing */
+	if ( base_keymap != NULL
+		&& base_keymap == current_keymap)
+		return;
+
+	/* if a different keymap is used free the command forms keymap */
+	if ( base_keymap != NULL
+		&& base_keymap != current_keymap 
+		&& cf_keymap != NULL)
+	{
+		/* A different keymap is being used - recalculate keymap */
+		rl_discard_keymap(cf_keymap);
+		cf_keymap = NULL;
+	}
+
+	/* Record the keymap we based things on */
+	base_keymap = current_keymap;
+
+	/* Setup form keymaps by cloning current keymap */
+	cf_keymap = clone_keymap(current_keymap);
+	rl_set_keymap(cf_keymap);
+	
+	for (i = 0; i < KEYMAP_SIZE; i++)
+	{
+	    /* Replace rl_insert with handler for navigation */
+		if ( current_keymap[i].function ==
+			rl_insert)
+		{
+			cf_keymap[i].function = cf_insert_or_cycle_screenfield;
+		}
+    }
+	
+	/*
+		Set special handling for arrow keys in cloned key map 
+	 */
+	if ( _rl_term_ku )
+		rl_set_key(_rl_term_ku, cf_up_arrow_key, cf_keymap);
+	if ( _rl_term_kd )
+		rl_set_key(_rl_term_kd, cf_down_arrow_key, cf_keymap);
+	if ( _rl_term_kr )
+		rl_set_key(_rl_term_kr, cf_right_arrow_key, cf_keymap);
+	if ( _rl_term_kl )
+		rl_set_key(_rl_term_kl, cf_left_arrow_key, cf_keymap);
+
+	/* 
+		Set arrow keys for common psuedo ansi terminal keypad 
+		as a catch all if the TERM variable is not set or 
+		badly defined terminfo
+		XXXX should us "if unbound"
+	*/
+	rl_set_key( "\033[A", cf_up_arrow_key , cf_keymap);
+	rl_set_key( "\033[B", cf_down_arrow_key, cf_keymap );
+	rl_set_key( "\033[C", cf_right_arrow_key, cf_keymap );
+	rl_set_key( "\033[D", cf_left_arrow_key, cf_keymap );
+	rl_set_key( "\033OA", cf_up_arrow_key, cf_keymap );
+	rl_set_key( "\033OB", cf_down_arrow_key, cf_keymap );
+	rl_set_key( "\033OC", cf_right_arrow_key, cf_keymap);
+	rl_set_key( "\033OD", cf_left_arrow_key, cf_keymap);
+
+	/* Set redraw */
+	cf_keymap[CTRL('l')].function = cf_redraw;
+	cf_keymap[CTRL('l')].type = ISFUNC;;
+
+	
+	rl_set_keymap(current_keymap);
+	
+	/* Mark as initialized */
+	cf_readline_initialized = 1;
+}
+
+/*
+	Set up the read line environmnent and call readline.
+	Readline will redraw the label of the current screen field
+	from the start of the line and will process input. 
+	
+	A call back function is used to populate the readline input
+	with the display value of the field.
+	
+	Functions call from the "keymap" set the "next navigation" field
+	of the global cf_screenform. This communicates the processing
+	of up and down arrows to navigate between screen fields.
+
+	The screen field value and display value are set from the 
+	string returned by readline.
+*/
+extern int _rl_horizontal_scroll_mode;
+static void
+screenform_editscreenfield(screenform)
+	SCREENFORM *screenform;
+{
+  char *ret;
+  rl_completion_func_t *old_attempted_completion_function;
+  rl_compdisp_func_t *old_completion_display_matches_hook;
+  Keymap old_keymap;
+  int old_rl_horizontal_scroll_mode;
+
+	if (!bash_readline_initialized)
+		initialize_readline ();
+
+	if ( !cf_readline_initialized )
+		cf_initialize_readline();
+
+	/* Save readline state */
+	old_keymap = rl_get_keymap();
+	old_attempted_completion_function = rl_attempted_completion_function;
+	old_completion_display_matches_hook = rl_completion_display_matches_hook;
+	old_rl_horizontal_scroll_mode = _rl_horizontal_scroll_mode;
+
+
+	/* Save the startup hook - restored in call back */
+	old_rl_startup_hook = rl_startup_hook;
+
+	/* Set call back to display contents of field */
+	rl_startup_hook = screenform_displayvalue;
+
+	/* Set custom completion functions */
+	rl_attempted_completion_function = cf_completion;
+	rl_completion_display_matches_hook = cf_display_matches;
+
+	/* XXXXXX Set required key map */
+	rl_set_keymap(cf_keymap);
+
+	/* Set horizontal scroll mode */
+	_rl_horizontal_scroll_mode = 1;
+
+	/* Read line of input redisplaying field label */
+	ret = readline(screenform->currentscreenfield->label);
+
+	/* Restore readline state */
+	rl_attempted_completion_function = old_attempted_completion_function;
+	rl_set_keymap(old_keymap);
+	_rl_horizontal_scroll_mode = old_rl_horizontal_scroll_mode;
+	rl_completion_display_matches_hook = old_completion_display_matches_hook;
+	
+	/* Set the value using the displayed data */
+	screenfield_setwithdisplayvalue(screenform->currentscreenfield, ret, 0);
+}
+
+/*
+	Screen form functions
+*/
+
+/*
+	This function is called from within readline and "pretends" to have 
+	"inserted" the value of the current screen form field.
+	The effect is to display the value of the field and position the 
+	cursor at the start of the field. The use can then use the readline edit
+	commands to edit the value.
+ */
+static int
+screenform_displayvalue ()
+{
+  if (cf_screenform->currentscreenfield->value)
+    {
+      rl_insert_text (cf_screenform->currentscreenfield->displayvalue);
+		/* If field wider than display width set edit point at start of field */
+	  if ( (strlen(cf_screenform->currentscreenfield->displayvalue)
+			+  cf_screenform->maxlabelwidth + 3)
+			> cf_screenform->width )
+		  rl_point = 0;
+    }
+  rl_startup_hook = old_rl_startup_hook;
+  return 0;
+}
+
+/*
+	Set the value of a screen field according to the index into the 
+	table of allowable values for the field. The display value is set
+	and the value for generation of the command.
+ */
+static void 
+screenfield_setwithindex(screenfield, valueindex)
+	SCREENFIELD *screenfield;
+	int valueindex;
+{
+  FIELDSPEC *fieldspec;
+
+	fieldspec = screenfield->fieldspec;
+
+	/* Free existing values */
+	if ( screenfield->value )
+	{
+		free(screenfield->value);
+		screenfield->value = NULL;
+	}
+	if ( screenfield->displayvalue )
+	{
+		free(screenfield->displayvalue);
+		screenfield->displayvalue = NULL;
+	}
+
+	if ( valueindex < fieldspec->valuescount &&
+		valueindex > -1 )
+	{
+		screenfield->currentvalueindex = valueindex;
+		screenfield->value = STRDUP(fieldspec->values[valueindex]);
+		screenfield->displayvalue = STRDUP(fieldspec->displayvalues[valueindex]);
+	}
+	else
+	{
+	fprintf(stderr, "\n\n\n\n screenfield_setwithindex - invalid index %d where  valuescount is %d\n", valueindex, fieldspec->valuescount);	
+	}
+
+}
+/*
+	Set the value of a screen field from the value to be place in the generated
+	command. If there is a translation between "value" and "display value" apply
+ 	the translation to populate the display value of the field.
+ */
+static void
+screenfield_setwithvalue(screenfield, value)
+	SCREENFIELD *screenfield;
+	char *value;
+{
+  FIELDSPEC *fieldspec;
+  int valueindex;
+
+	fieldspec = screenfield->fieldspec;
+
+	/* Free existing values */
+	if ( screenfield->value )
+	{
+		free(screenfield->value);
+		screenfield->value = NULL;
+	}
+	if ( screenfield->displayvalue )
+	{
+		free(screenfield->displayvalue);
+		screenfield->displayvalue = NULL;
+	}
+
+	/* Set value and default index */
+	screenfield->value = STRDUP(value);
+
+	screenfield->currentvalueindex = -1;
+
+	/* If there is a display translation check if value matches */
+	if ( fieldspec->valuescount > 1 )
+	{
+		valueindex = fieldspec_valueindex(fieldspec, value);
+		if ( valueindex != -1 )
+		{
+			screenfield->displayvalue = 
+				STRDUP(fieldspec->displayvalues[valueindex]);
+			screenfield->currentvalueindex = valueindex;
+		}
+		else
+		{
+			screenfield->displayvalue = STRDUP(value);
+		}
+	}
+	else
+	{
+		screenfield->displayvalue = STRDUP(value);
+	}
+}
+/*
+	Set the value of a screen field from the value to be displayed. If there 
+	is a translation between "value" and "display value" apply the reverse to
+	populate the value of the field.
+ */
+static void 
+screenfield_setwithdisplayvalue(screenfield, displayvalue, partial)
+	SCREENFIELD *screenfield;
+	char *displayvalue;
+	int partial;
+{
+  FIELDSPEC *fieldspec;
+  int valueindex;
+
+	fieldspec = screenfield->fieldspec;
+
+	/* Free existing values */
+	if ( screenfield->value )
+	{
+		free(screenfield->value);
+		screenfield->value = NULL;
+	}
+	if ( screenfield->displayvalue )
+	{
+		free(screenfield->displayvalue);
+		screenfield->displayvalue = NULL;
+	}
+
+	/* Set value and default index */
+
+	/* If there is a display translation check if value matches */
+	if ( fieldspec->valuescount > 1 )
+	{
+		valueindex = fieldspec_displayvalueindex(fieldspec, displayvalue, partial);
+		if ( valueindex != -1 )
+		{
+			screenfield_setwithindex(screenfield, valueindex);
+			return;
+		}
+	}
+
+	/* Otherwise  set everything as entered */
+	screenfield->currentvalueindex = -1;
+	screenfield->displayvalue = STRDUP(displayvalue);
+	screenfield->value = STRDUP(displayvalue);
+}
+/*
+	Append a string to a screen field
+ */
+static void
+screenfield_appendtovalue(screenfield, value)
+	SCREENFIELD *screenfield;
+	char *value;
+{
+	int length;
+	char *oldvalue;
+	char *newvalue;
+
+	if ( screenfield->value)
+	{
+		length = strlen(screenfield->value) + strlen(value) + 2;
+		oldvalue = screenfield->value;
+		newvalue = xmalloc((unsigned int)length);
+		strcpy(newvalue, oldvalue);
+		strcat(newvalue, " ");
+		strcat(newvalue, value);
+		screenfield_setwithvalue(screenfield, newvalue);
+		free(newvalue);
+	}
+	else
+	{
+		screenfield_setwithvalue(screenfield, value);
+	}
+}
+/* 
+	Populate the screen field values from the passed in arguments and 
+	set unspecificed arguments to their defaults.	
+*/
+static void
+screenform_populatefieldsfrompartialcommand(screenform, list)
+	SCREENFORM *screenform;
+	WORD_LIST *list;
+{
+	
+WORD_LIST *l;
+  FORMFIELDSPEC **fieldlist;
+  FORMFIELDSPEC **fl;
+  FIELDSPEC *fieldspec;
+  SCREENFIELD *screenfield;
+  int valueindex;
+  int found;
+
+
+	fieldlist = screenform->formspec->generationfieldlist;
+	for (l = list->next; l && *fieldlist; l = l->next)
+	{
+		fieldspec = (*fieldlist)->fieldspec;
+		screenfield = (*fieldlist)->screenfield;
+
+		/* If next fieldspec is a flag then try to match
+		   the argument to any flags before the next positional argument */
+
+		if ( fieldspec->fieldtype == FIELDTYPE_FLAG
+			|| FIELDTYPE_FLAGWITHVALUE)
+		{
+			/* Check for matching flag arguments prior to next positional */
+			found = 0;
+
+			for (fl = fieldlist; *fl && 
+				( (*fl)->fieldspec->fieldtype == FIELDTYPE_FLAG ||
+				 (*fl)->fieldspec->fieldtype == FIELDTYPE_FLAGWITHVALUE); fl++)
+			{
+				fieldspec = (*fl)->fieldspec;
+				screenfield = (*fieldlist)->screenfield;
+
+				/* Test for matching flag value */
+				if ( fieldspec->fieldtype == FIELDTYPE_FLAGWITHVALUE
+						&&  fieldspec->flag)
+				{
+					int flaglen = strlen(fieldspec->flag);
+
+					if ( strcmp(fieldspec->flag, l->word->word) == 0 ||
+							 (fieldspec->flag[flaglen-1] == ' ' &&
+							strncmp(fieldspec->flag, l->word->word,
+								flaglen-1) == 0) )
+					{
+						/* Should be another value */
+						if ( l->next )
+						{
+							/* Consume value */
+							screenfield_setwithvalue(screenfield, 
+								l->next->word->word);
+							l = l->next;
+						}
+						/* Consume argument 
+							but don't progress field list pointer  
+							as there may be other flags */
+						found = 1;
+						break;
+					}
+					else if ( strncmp(fieldspec->flag, l->word->word, 
+								flaglen) == 0)
+					{
+						/* split flag from word and set vallue */
+						screenfield_setwithvalue(screenfield,
+							l->word->word + flaglen);
+						found = 1;
+						break;
+					}
+
+				}
+				else
+				{
+					/* Check whether it matches the on or off values */
+					valueindex = fieldspec_valueindex(fieldspec, l->word->word) ;
+					if ( valueindex != -1 )
+					{
+						/* Set the value of the field */
+						screenfield_setwithindex(screenfield, valueindex);
+					
+						/* Consume argument 
+							but don't progress field list pointer  
+							as there may be other flags */
+						found = 1;
+						break;
+					}
+				}
+			}
+			/* If found then check next argument against flags */
+			if ( found )
+				continue;
+
+			if ( !*fl)
+			{
+				/* No more positional arguments -
+					all trailing */
+				fieldlist = fl;
+				break;
+			}
+			else
+			{
+				/* No matching flags so position to fieldspec  */
+				fieldlist = fl;
+				fieldspec = (*fieldlist)->fieldspec;
+				screenfield = (*fieldlist)->screenfield;
+				/* Drop through */
+			}
+		}
+
+		/* If a position argument is next then use the value */
+		if ( fieldspec->fieldtype == FIELDTYPE_UPTOLAST)
+		{
+			/* If not last argument append to "UPTOLAST" field */
+			if ( l->next != NULL )
+			{
+				screenfield_appendtovalue(screenfield, l->word->word);
+				/* Note: Don't progress fieldlist */
+			}
+			else
+			{
+			/* Last argument so If next field is last field apply to that field */
+				if ( *(fieldlist+1) &&
+					(*(fieldlist+1))->fieldspec->fieldtype == FIELDTYPE_LAST)
+				{
+					screenfield_setwithvalue(
+						(*(fieldlist+1))->screenfield,l->word->word);
+				}
+				else
+				{
+			/* Note: if no  LAST field after UPTOLAST then add to UPTOLAST */
+					screenfield_appendtovalue(screenfield, l->word->word);
+				}
+			fieldlist++;
+			}
+		}
+		else if ( fieldspec->fieldtype == FIELDTYPE_POSITIONAL
+			|| fieldspec->fieldtype == FIELDTYPE_LAST)
+		{
+			/* Set value */
+			screenfield_setwithvalue(screenfield, l->word->word);
+			fieldlist++;
+		}
+
+		else if ( fieldspec->fieldtype == FIELDTYPE_REST)
+		{
+			/* Append all the rest to the field */
+			screenfield_appendtovalue(screenfield, l->word->word);
+			/* Note: Don't progress fieldlist */
+		}
+		else
+			fprintf(stderr, "\n\n\n\nInvalid field type %d\n\n\n\n",
+				fieldspec->fieldtype);
+	}
+
+	/* Set default values for unspecified fields */
+	for ( fieldlist = screenform->formspec->generationfieldlist ; *fieldlist; fieldlist++)
+	{
+		fieldspec = (*fieldlist)->fieldspec;
+		screenfield = (*fieldlist)->screenfield;
+	
+		/* In value not populated then set default value */
+		if ( screenfield->value == NULL )
+			{
+			if ( fieldspec->values )
+				screenfield_setwithvalue(screenfield, fieldspec->values[0]);
+			}
+		
+			
+	}
+}
+
+/*
+	Determine the length of the generated argument
+ */
+static int screenfield_generatedargumentlength(screenfield)
+	SCREENFIELD *screenfield;
+{
+	int len;
+
+		len = 0;
+
+		/* Length of flag */
+		if ( screenfield->fieldspec->flag)
+			len += strlen(screenfield->fieldspec->flag);
+
+		/* Length of trailing separator */
+		if ( screenfield->fieldspec->separator)
+			len += strlen(screenfield->fieldspec->separator);
+		else
+			/* or default space */
+			len++;
+
+		/* Length of value - if value then flag otherwise nothing */
+		if ( screenfield->value && strlen(screenfield->value) > 0)
+			return len + strlen(screenfield->value);
+		else
+			/* If not value do not include length of flag */
+			return 0;
+}
+
+/*
+	Navigate to the next displayable screen field and make that field current
+	Reports if there are no subsequent displayable fields.
+ */
+static int screenform_gotonextfield(screenform)
+	SCREENFORM *screenform;
+{
+SCREENFIELD *screenfield;
+SCREENFIELD *endofscreenfields;
+
+	screenfield = screenform->currentscreenfield;
+	endofscreenfields = (screenform->fieldcount-1) + screenform->screenfields;
+
+	/* Find next displayable field */
+	++screenfield;
+	while ( screenfield <= endofscreenfields )
+	{
+		if( string_list_contains(screenfield->fieldspec->displaylevels, screenform->displaylevel))
+		{
+			screenform_gotofield(screenform, screenfield);
+			return 1;
+		}
+		screenfield++;
+	}
+	/* No displayable fields found */
+	screenform_gotofield(screenform, screenform->currentscreenfield);
+	return 0;
+}
+/*
+	Navigate to the previous displayable screen field and make that field current
+ */
+static void 
+screenform_gotopreviousfield(screenform)
+	SCREENFORM *screenform;
+{
+SCREENFIELD *screenfield;
+SCREENFIELD *endofscreenfields;
+
+	screenfield = screenform->currentscreenfield;
+	endofscreenfields = (screenform->fieldcount-1) + screenform->screenfields;
+
+	if ( screenfield == screenform->screenfields )
+	{
+		screenform_gotofield(screenform, screenfield);
+		rl_ding();
+		return;
+	}
+
+	screenfield--;
+	/* Look for next displayable field */
+	while ( screenfield >=  screenform->screenfields )
+	{
+		if( string_list_contains(screenfield->fieldspec->displaylevels, screenform->displaylevel))
+		{
+			screenform_gotofield(screenform, screenfield);
+			return;
+		}
+		/* Otherwise */
+		screenfield--;
+	}
+	/* No displayable fields found */
+	rl_ding();
+}
+/*
+	Generate the text to be put into the generated command for the screenfield
+ */
+static char * 
+screenfield_generateargument(screenfield)
+	SCREENFIELD *screenfield;
+{
+	char *argument;
+	int len;
+
+		if ( screenfield->value && (strlen(screenfield->value) > 0))
+		{
+			len = strlen(screenfield->value);
+			if ( screenfield->fieldspec->flag )
+			{
+				len += strlen(screenfield->fieldspec->flag);
+				argument = xmalloc((unsigned int)len+1);
+				strcpy(argument, screenfield->fieldspec->flag);
+				strcat(argument, screenfield->value);
+			}
+			else
+			{
+				argument = xmalloc((unsigned int)len+1);
+				memcpy(argument, screenfield->value, len+1);
+			}
+			return argument;
+		}
+		else
+			return NULL;
+}
+
+
+
+/*
+	Change the current field and position the cursor to that the line of that
+	field either using <CR> or UP character sequences.
+ */
+static void
+screenform_gotofield(screenform, screenfield)
+	SCREENFORM *screenform;
+	SCREENFIELD *screenfield;
+{
+int i;
+int delta;
+
+	delta = screenform->currenty - screenfield->y;
+	if ( delta > 0 )
+	{
+		if (cf_edit_mode == CF_MODE_FORM &&   UP && *UP)
+			{
+				for( i=0; i < delta; i++)
+					tputs(UP, 1, local_output_char);
+			}
+	}
+	else
+	{
+		for( i=0; i < -delta; i++)
+		{
+			putc('\n', stderr);
+		}
+	}
+	screenform->currentscreenfield = screenfield;
+	screenform->currenty = screenfield->y;
+}
+
+/*
+	Draw text on the hint line of the screen by <CR> to
+	go to the hint line, drawing the text up to the screen width
+	and using the UP character sequence to go back to the line 
+	you first started on.
+	
+ */
+static void
+screenform_hint(screenform, hint)
+	SCREENFORM *screenform; 
+	char *hint;
+{
+int i;
+int delta;
+
+		if ( cf_edit_mode == CF_MODE_FORM &&
+			 UP && *UP)
+		{
+			delta = (screenform->height - screenform->currenty) - 1;
+		/* Go to hint line */
+			for( i=0; i < delta; i++)
+			{
+				putc('\n', stderr);
+			}
+
+		/* Output hint on bottom line  - limit to screen width */
+			i = strlen(hint) >
+					screenform->width ?
+				screenform->width :
+				strlen(hint);
+			fwrite(hint, 
+				1, (unsigned int)i, stderr);
+		/* Clear to end of line */
+			for ( i = 
+				strlen(hint); 
+				i <screenform->width; i++)
+				putc(' ', stderr);
+
+		/* Go back to field */
+			for( i=0; i < delta; i++)
+				tputs(UP, 1, local_output_char);
+		}
+		else
+		{
+		/* If not UP suppported then just print the help text  
+				- do not care if it goes over width of screen */
+			fputs(hint, stderr);
+			putc('\n', stderr);
+		}
+	/* Return to first column */
+	/* Note that editscreenfield will redraw label */
+		putc('\r', stderr);
+}
+
+/*
+	Draw the hint text for currently displayed screen field
+ */
+static void 
+screenform_displayhinttext(screenform)
+	SCREENFORM *screenform;
+{
+
+	if ( screenform->currentscreenfield->fieldspec->hinttext)
+	{
+		screenform_hint(screenform, 
+			screenform->currentscreenfield->fieldspec->hinttext);
+	}
+
+}
+/*
+	Initial drawing of complete screen form. Cursor is moved to first field. 
+ */
+static void 
+screenform_draw(screenform)
+	SCREENFORM *screenform;
+{
+SCREENFIELD *screenfield;
+
+char *buff;
+char *string;
+int len;
+char *cp;
+int i;
+int y;
+
+
+
+
+/* Display top line */
+	buff = xmalloc((unsigned int)(screenform->width + 1));
+	memset(buff, '-', (unsigned int)(screenform->width));
+	buff[screenform->width] = '\0';
+	len = strlen(screenform->label);
+	cp = buff + ( (screenform->width/2) - (len/2) );
+	if ( cp < buff)
+	{
+		cp = buff;
+		len = screenform->width;
+	}
+	memcpy(cp, screenform->label, (unsigned int)len);
+
+	/* Output string */
+	fputs(buff, stderr);
+	rl_crlf();
+
+	
+/* Display each field */
+
+	y= 0;
+	for(screenfield= screenform->screenfields, i=0; i<screenform->fieldcount ; screenfield++, i++)
+	{
+		if ( string_list_contains(screenfield->fieldspec->displaylevels, screenform->displaylevel))
+		{
+			/* Go to correct line */
+			while(y < screenfield->y)
+			{
+				rl_crlf();
+				y++;
+			}
+			/* Display label */
+			fputs(screenfield->label, stderr);
+
+			/* Display value */
+			if ( screenfield->displayvalue)
+			{
+				len = strlen(screenfield->displayvalue) ;
+				if ( (len + screenform->maxlabelwidth + 4) >
+					screenform->width)
+				{
+					len = screenform->width - 
+						screenform->maxlabelwidth - 5;
+					fwrite(screenfield->displayvalue, 
+						1, (unsigned int)len, stderr);
+					putc('>', stderr);
+				}
+				else
+				{
+					fwrite(screenfield->displayvalue, 
+						1, (unsigned int)len, stderr);
+				}
+			}
+
+			/* Go to next line */
+			rl_crlf();
+			y++;
+
+			/* If field is a LAST and not last field */
+			if ( (screenfield->fieldspec->fieldtype == FIELDTYPE_LAST
+					|| screenfield->fieldspec->fieldtype == FIELDTYPE_REST)
+				&& i < (screenform->fieldcount-1) )
+			{
+				memset(buff, ' ', (unsigned int)(screenform->width));
+				memset(buff, '+', (unsigned int)(screenform->maxlabelwidth));
+				buff[screenform->width] = '\0';
+				string = "flags";
+				len = strlen(string);
+				cp = buff + ( (screenform->maxlabelwidth/2) - (len/2) );
+				if ( cp < buff)
+				{
+					cp = buff;
+				}
+				memcpy(cp, string, (unsigned int)len);
+
+				/* Output string */
+				fputs(buff, stderr);
+				rl_crlf();
+				y++;
+			}
+		}
+	}
+
+/* add a line for the hint text */
+	memset(buff, '-', (unsigned int)(screenform->width));
+	len = strlen(screenform->displaylevel);
+	if (len > screenform->width)
+		len = screenform->width/2;
+
+	memcpy(buff + (screenform->width - len), screenform->displaylevel, (unsigned int)len);
+	fputs(buff, stderr);
+	rl_crlf();
+	y++;
+	rl_crlf();
+	y++;
+
+	/* Position to first field */
+	screenform->currentx = 0;
+	screenform->currenty = screenform->height;
+
+	free(buff);
+}
+
+/*
+	Layout the fields of the form for the current screen width
+ */
+static void 
+screenform_layout(screenform)
+	SCREENFORM *screenform;
+{
+FORMFIELDSPEC **fieldlist;
+SCREENFIELD *screenfield;
+FIELDSPEC *field;
+int labelwidth;
+int maxlabelwidth;
+int y;
+int i;
+char *ap;
+char *bp;
+
+int rows;
+int cols;
+
+
+
+/* Get size of screen */
+
+rl_get_screen_size(&rows, &cols);
+
+/* Layout form */
+
+/* 1. Determine label width */
+	maxlabelwidth = 0;
+	for(fieldlist=screenform->formspec->screenfieldlist, screenfield= screenform->screenfields; *fieldlist; fieldlist++, screenfield++)
+	{
+		field = (*fieldlist)->fieldspec;
+		/* Cross link screenfield and fieldspec */
+		(*fieldlist)->screenfield = screenfield;
+		/* Cross link matching generationfieldlist entry */
+		(*fieldlist)->crosslink->screenfield = screenfield;
+		screenfield->fieldspec = field;
+		/* Check display level */
+		if ( string_list_contains(field->displaylevels ,screenform->displaylevel))
+		{
+			labelwidth = strlen(field->label);
+			if ( labelwidth > maxlabelwidth)
+				maxlabelwidth = labelwidth;
+		}
+	}
+	/* hardcoded esthetic  
+		IF label width greater than a third of screen width 	
+				set label width to 20 */
+	if ( maxlabelwidth > (cols / 3) )
+		if ( maxlabelwidth > 40)
+			maxlabelwidth = 40;
+
+	screenform->maxlabelwidth = maxlabelwidth;
+/* 2. Layout each field  - right align field labels */
+
+	y= 0;
+	for(fieldlist=screenform->formspec->screenfieldlist, screenfield= screenform->screenfields; *fieldlist; fieldlist++, screenfield++)
+	{
+		field = (*fieldlist)->fieldspec;
+		if ( string_list_contains(field->displaylevels, screenform->displaylevel))
+		{
+				if ( screenfield->label )
+					free(screenfield->label);
+				screenfield->label= xmalloc((unsigned int)(maxlabelwidth+2));
+				memset(screenfield->label, ' ', (unsigned int)maxlabelwidth);
+				labelwidth= strlen(field->label);
+				/* Watch for large labels */
+				if ( labelwidth > maxlabelwidth)
+					labelwidth = maxlabelwidth;
+				/* Right justify label */
+				for( i=0, ap= field->label, 
+					bp= screenfield->label+(maxlabelwidth-labelwidth);
+					*ap && i < maxlabelwidth;
+					bp++, ap++, i++
+					)
+					*bp = *ap;
+				
+				/* Add delimiter */
+				*bp++ = ':';
+				*bp++ = ' ';
+				*bp++ = '\0';
+				screenfield->x = 0;
+				screenfield->y = y;
+				screenfield->inputy = y++;
+
+				/* last field level space for separator */
+				if (( field->fieldtype == FIELDTYPE_LAST 
+						|| field->fieldtype == FIELDTYPE_REST )
+						&& *(fieldlist+1) )
+					y++;
+	
+				screenfield->inputx = maxlabelwidth + 1;
+				screenfield->height = 1;
+				/* XXXX defaulting to screen width */
+				screenfield->width  = cols - maxlabelwidth - 1;
+				/* Note: defaults set by screenform_polutatefrompartialcommand */
+		
+		}
+	}
+	/*  Add line for hints */
+	screenform->height = y+2;
+	screenform->width = cols;
+}
+/*
+   Instansiate a screen form, laying out the fields
+ */
+static SCREENFORM * 
+screenform_init(formspec, label)
+	FORMSPEC *formspec;
+ 	char *label;
+{
+	SCREENFORM *screenform;
+
+
+	/* Create SCREENFORM and SCREENFIELDs */
+	screenform =  xmalloc(sizeof *screenform);
+	memset(screenform, 0, sizeof(SCREENFORM) );
+
+
+	/* Allocate screen fields */
+	screenform->screenfields = (SCREENFIELD *)xmalloc( (unsigned int)(formspec->fieldcount * sizeof(SCREENFIELD) ) );
+	memset(screenform->screenfields, 0, (unsigned int)(formspec->fieldcount * sizeof(SCREENFIELD) ));
+
+	/* Initialising housekeeping */
+	screenform->label = savestring(label);
+	screenform->fieldcount = formspec->fieldcount;
+	screenform->formspec = formspec;
+	/* default display level */
+	screenform->displaylevel = formspec->displaylevels[0];
+
+	return screenform;
+}
+
+/*
+	Field specifier functions
+*/
+
+/*
+ Remove all field specifiers
+ */
+static int
+fieldspec_removeall (list)
+     WORD_LIST *list;
+{
+
+  WORD_LIST *l;
+  int ret;
+
+  for (ret = EXECUTION_SUCCESS, l = list; l; l = l->next)
+    {
+      if (fieldspec_remove (l->word->word) == 0)
+	  {
+		  builtin_error ("%s: no fieldspec specification or fieldspec in use", l->word->word);
+		  ret = EXECUTION_FAILURE;
+	  }
+    }
+  return ret;
+}
+
+/*
+	Print field specification
+ */
+#define CONDITIONALSQPRINTSTRING(a, f) \
+    if (a && *a) \
+      { \
+      	x = sh_single_quote (a); \
+	printf ("%s %s ", f, x); \
+	free (x); \
+      } 
+
+#define CONDITIONALPRINTDOUBLE(a, f) \
+    if (a != 0.0 ) \
+      printf ("%s %g ", f, a); 
+
+#define CONDITIONALPRINTINT(a, f) \
+    if (a != 0 ) \
+      printf ("%s %d ",  f, a); 
+
+#define CONDITIONALPRINTSTRING(a, f) \
+    if ( a && *(a) )  \
+      printf ("%s %s", f, a); 
+
+static int
+fieldspec_print (cmd, cs)
+char *cmd; 
+FIELDSPEC *cs;
+{
+  char *x;
+	char *string;
+
+  printf ("fieldspec ");
+
+  string = NULL;
+	if ( cs->fieldtype == FIELDTYPE_FLAG)
+		string = "flag";
+	else if ( cs->fieldtype == FIELDTYPE_FLAGWITHVALUE)
+		string = "flagwithvalue";
+	else if ( cs->fieldtype == FIELDTYPE_POSITIONAL)
+		string = "positional";
+	else if ( cs->fieldtype == FIELDTYPE_UPTOLAST)
+		string = "uptolast";
+	else if ( cs->fieldtype == FIELDTYPE_LAST)
+		string = "last";
+	else if ( cs->fieldtype == FIELDTYPE_REST)
+		string = "rest";
+  CONDITIONALSQPRINTSTRING(string, "+fieldtype");
+  CONDITIONALSQPRINTSTRING(cs->hinttext, "+hinttext")
+  CONDITIONALSQPRINTSTRING(cs->helptext, "+helptext")
+  CONDITIONALSQPRINTSTRING(cs->label, "+label")
+  CONDITIONALSQPRINTSTRING(cs->compspec, "+compspec")
+  CONDITIONALSQPRINTSTRING(cs->separator, "+separator")
+  CONDITIONALSQPRINTSTRING(cs->flag, "+flag")
+	/* FIXME values displayvalues and displaylevels */
+  printf ("%s\n", cmd);
+
+  return (0);
+}
+
+/*
+	Helper function called to print a field spec from a walk
+	of field spec hash
+ */
+static int
+fieldspec_printitem (item)
+BUCKET_CONTENTS *item;
+{
+  FIELDSPEC *cs;
+  char *cmd;
+
+  cmd = item->key;
+  cs = (FIELDSPEC *)item->data;
+
+  return (fieldspec_print (cmd, cs));
+}
+
+/*
+	Print all field specs by walking hash
+ */
+static void
+fieldspec_printall ()
+{
+  fieldspecs_walk (fieldspec_printitem);
+}
+
+/*
+ 	Print all field spec in a list 
+ */
+static int
+fieldspec_printlist (list)
+     WORD_LIST *list;
+{
+  WORD_LIST *l;
+  FIELDSPEC *cs;
+  int ret;
+
+  for (ret = EXECUTION_SUCCESS, l = list; l; l = l->next)
+    {
+      cs = fieldspec_search (l->word->word);
+      if (cs)
+	fieldspec_print (l->word->word, cs);
+      else
+	{
+	  builtin_error ("%s: no fieldspec specification", l->word->word);
+	  ret = EXECUTION_FAILURE;
+	}
+    }
+  return (ret);
+}
+
+/*
+	Determine the index into the translation table for a value.
+ */
+static int 
+fieldspec_valueindex(fieldspec, value)
+	FIELDSPEC *fieldspec;
+	char *value;
+{
+	int i;
+	for (i=0; i<fieldspec->valuescount; i++)
+	{
+		if (strcmp(fieldspec->values[i], value) == 0 )
+			return i;
+	}
+	return -1;
+}
+
+/*
+	Determine the index into the translation table for a display value.
+ */
+static int
+fieldspec_displayvalueindex(fieldspec, displayvalue, partial)
+	FIELDSPEC *fieldspec;
+ 	char *displayvalue;
+	int partial;
+{
+	int i;
+	int len = strlen(displayvalue);
+
+	for (i=0; i<fieldspec->valuescount; i++)
+	{
+		if ( partial )
+		{
+			if (strncasecmp(fieldspec->displayvalues[i], displayvalue, (unsigned int)len) == 0 )
+				return i;
+		}
+		else
+		{
+			if (strcmp(fieldspec->displayvalues[i], displayvalue) == 0 )
+				return i;
+		}
+	}
+	return -1;
+}
+
+
+$BUILTIN fieldspec
+$DEPENDS_ON COMMAND_FORMS
+$FUNCTION fieldspec_builtin
+$SHORT_DOC field_spec [-pr] +label <label> +fieldtype flag|flagwithvalue|positional|uptolast|last|rest [+hinttext <hint text>] [+helptext <help text>]  [+displaylevels <level 1> <level 2> ...] [ +compspec <compspec name> ] [+separator <separator to next field> ] <fieldspec name> ...
+This command defines a type of field for display on a command form.
+$END
 /* Build the field specfication in LIST.
     Return value:
    	EX_USAGE = bad option
@@ -81,7 +1839,8 @@ static void screenform_gotofield(SCREENFORM *screenform, SCREENFIELD *screenfiel
 
 /* Add, remove, and display field specifiers. */
 int
-fieldspec_builtin ( WORD_LIST *list)
+fieldspec_builtin (list)
+WORD_LIST *list;
 {
   FIELDSPEC *cs;
   WORD_LIST *l;
@@ -94,17 +1853,24 @@ fieldspec_builtin ( WORD_LIST *list)
         char *hinttext;
         char *helptext;
         char *label;
-        char *displaylevel;
         char *compspec;
+        char *separator;
         char *flag;
+
         char **values;
 		int valueslength;
 		int valuescount;
 		WORD_LIST *valueslist;
+
         char **displayvalues;
 		int displayvalueslength;
  		int displayvaluescount;
 		WORD_LIST *displayvalueslist;
+
+		int displaylevelslength;
+		int displaylevelscount;
+		WORD_LIST *displaylevelslist;
+		
 	int pflag= 0;
 	int rflag= 0;
 
@@ -120,18 +1886,22 @@ fieldspec_builtin ( WORD_LIST *list)
 	hinttext = NULL;
 	helptext = NULL;
 	label = NULL;
-	displaylevel = NULL;
 	values = NULL;
 	displayvalues = NULL;
 	valueslist = NULL;
 	displayvalueslist = NULL;
+	displaylevelslist = NULL;
+	
 	valuescount = 0;
 	displayvaluescount = 0;
-	compspec = NULL;
-	flag = NULL;
+	displaylevelscount = 0;
 	valueslength = 0;
 	displayvalueslength = 0;
-
+	displaylevelslength = 0;
+	compspec = NULL;
+	separator = NULL;
+	flag = NULL;
+	
   for (l = list; l; )
 	{
 		if ( strcmp("-p", l->word->word) == 0)
@@ -206,12 +1976,36 @@ fieldspec_builtin ( WORD_LIST *list)
 			l = ll;
 			goto next;
 		}
+		else if ( strcmp("+displaylevels", l->word->word) == 0)
+		{
+			displaylevelslist= l->next;
+			displaylevelslength = 0;
+			displaylevelscount = 0;
+			/* Determine the length the values string will need 
+				Note: Last word is always command */
+			for ( ll = l->next; ll->next; ll = ll->next)
+			{
+				if ( ll->word->word[0] == '+' )
+				{
+					l = ll;
+					goto next;
+				}
+				else
+					{
+					displaylevelslength += strlen(ll->word->word) + 1;
+					displaylevelscount++;
+					}
+				
+			}
+			l = ll;
+			goto next;
+		}
 		CHECKFORSTRINGARG("+fieldtype", fieldtype)
 		CHECKFORSTRINGARG("+hinttext", hinttext)
 		CHECKFORSTRINGARG("+helptext", helptext)
 		CHECKFORSTRINGARG("+label", label)
-		CHECKFORSTRINGARG("+displaylevel", displaylevel)
 		CHECKFORSTRINGARG("+compspec", compspec)
+		CHECKFORSTRINGARG("+separator", separator)
 		CHECKFORSTRINGARG("+flag", flag)
 		else
 		{
@@ -257,23 +2051,42 @@ next:
       return (EX_USAGE);
     }
 
-	if ( fieldspec_search(l->word->word) != 0)
-	{
-		builtin_error ("%s: fieldspec already exists", l->word->word);
-		return (EX_USAGE);
-	}
-	/* Check for each display value there is a value */
 	if ( displayvaluescount > 0 && valuescount != displayvaluescount )
 	{
 		builtin_error ("%s: 'values' and 'displayvalues' must have same number of values", l->word->word);
 		return(EX_USAGE);
 	}
 
+	cs = fieldspec_search(l->word->word);
+
+	if ( cs )
+	{
+		builtin_error ("%s: WARNING fieldspec already exists", l->word->word);
+		FREE (cs->hinttext);
+		FREE (cs->helptext);
+		FREE (cs->label);
+		FREE(cs->flag);
+		if ( cs->values && cs->values[0])
+		{
+			FREE(cs->values[0]);
+			FREE(cs->values);
+		}
+		if ( cs->displayvalues &&
+		cs->values != cs->displayvalues)
+		{
+			FREE(cs->displayvalues[0]);
+			FREE(cs->displayvalues);
+		}
+		FREE(cs->compspec);
+		FREE(cs->separator);
+	}
+	else
   /* If we get here, we need to build a fieldspec and add it for each
      remaining argument. */
-  cs = fieldspec_create ();
-  cs->valuescount = valuescount;
+		cs = fieldspec_create();
+	/* Check for each display value there is a value */
 
+  cs->valuescount = valuescount;
 
 	if ( fieldtype && *fieldtype )
 	{
@@ -299,24 +2112,6 @@ next:
 	else
 		cs->fieldtype = FIELDTYPE_POSITIONAL;
 
-	if ( displaylevel && *displaylevel )
-	{
-	  if ( strcmp(displaylevel, "simple") == 0)
-		cs->displaylevel = CF_DISPLAYLEVEL_SIMPLE;
-	  else if ( strcmp(displaylevel, "general") == 0)
-		cs->displaylevel = CF_DISPLAYLEVEL_GENERAL;
-	  else if ( strcmp(displaylevel, "advanced") == 0)
-		cs->displaylevel = CF_DISPLAYLEVEL_ADVANCED;
-	  else
-		{
-		free(cs);
-		builtin_error ("%s: Invalid display level", displaylevel);
-		return(EX_USAGE);
-		}
-	}
-	else
-		cs->displaylevel = CF_DISPLAYLEVEL_SIMPLE;
-
   cs->hinttext = STRDUP (hinttext);
   cs->helptext = STRDUP (helptext);
   if ( label )
@@ -327,7 +2122,7 @@ next:
   
 	if ( valuescount > 0)
 	{
-		cs->values = xmalloc((unsigned int)(valuescount * sizeof(char *)) );
+		cs->values = xmalloc((unsigned int)((valuescount + 1) * sizeof(char *)) );
 		cs->values[0] = xmalloc((unsigned int)valueslength);
 
 		op = cs->values[0];
@@ -345,12 +2140,12 @@ next:
 			while( (*op++ = *ip++) ) ;
 			
 		}
-		*op = '\0';
+        cs->values[i] = 0;
 	}
 
 	if ( displayvaluescount > 0)
 	{
-	  cs->displayvalues = xmalloc((unsigned int)(valuescount * sizeof(char *)) );
+	  cs->displayvalues = xmalloc((unsigned int)((displayvaluescount + 1) * sizeof(char *)) );
 	  cs->displayvalues[0] = xmalloc((unsigned int)displayvalueslength);
 
 	  op = cs->displayvalues[0];
@@ -366,7 +2161,7 @@ next:
 			}
 			
 		}
-		*op = '\0';
+		cs->displayvalues[i] = 0;
 	}
 	else
 	{
@@ -375,7 +2170,35 @@ next:
 		cs->displayvalues = cs->values;
 	}
 
+	if ( displaylevelscount > 0)
+	{
+	  cs->displaylevels = xmalloc((unsigned int)((displaylevelscount + 1) * sizeof(char *)) );
+	  cs->displaylevels[0] = xmalloc((unsigned int)displaylevelslength);
+
+	  op = cs->displaylevels[0];
+	  for(i=0, ll = displaylevelslist; ll->next; i++, ll = ll->next)
+		{
+			if ( ll->word->word[0] == '+' )
+				break;
+			else
+			{
+				ip =  ll->word->word;
+				cs->displaylevels[i] = op;
+				while( (*op++ = *ip++) ) ;
+			}
+		}
+		cs->displaylevels[displaylevelscount] = 0;
+	}
+	else
+	{
+		/* Default display level if not specified */
+		cs->displaylevels = xmalloc(sizeof(char *) * 2);
+		cs->displaylevels[0] = STRDUP("general");
+		cs->displaylevels[1] = 0;
+	}
+
   cs->compspec = STRDUP (compspec);
+  cs->separator = STRDUP (separator);
   cs->flag = STRDUP (flag);
 
   if (fieldspec_insert (list->word->word, cs) == 0)
@@ -389,10 +2212,15 @@ usage_error:
 }
 
 /*
- Remove all field specifiers
+	Form specifier functions
+	
+*/
+
+/*
+	Remove all form specifiers 
  */
 static int
-fieldspec_removeall (list)
+remove_formspecs (list)
      WORD_LIST *list;
 {
 
@@ -401,115 +2229,86 @@ fieldspec_removeall (list)
 
   for (ret = EXECUTION_SUCCESS, l = list; l; l = l->next)
     {
-      if (fieldspec_remove (l->word->word) == 0)
-	  {
-		  builtin_error ("%s: no fieldspec specification or fieldspec in use", l->word->word);
-		  ret = EXECUTION_FAILURE;
-	  }
+      if (formspec_remove (l->word->word) == 0)
+	{
+	  builtin_error ("%s: no formspec specification", l->word->word);
+	  ret = EXECUTION_FAILURE;
+	}
     }
   return ret;
 }
 
-/*
-	Print field specification
+/* 
+	Print a form specifier
  */
-#define CONDITIONALSQPRINTSTRING(a, f) \
-    if (a && *a) \
-      { \
-      	x = sh_single_quote (a); \
-	printf ("%s %s ", f, x); \
-	free (x); \
-      } 
-
-#define CONDITIONALPRINTDOUBLE(a, f) \
-    if (a != 0.0 ) \
-      printf ("%s %g ", f, a); 
-
-#define CONDITIONALPRINTINT(a, f) \
-    if (a != 0 ) \
-      printf ("%s %d ",  f, a); 
-
-#define CONDITIONALPRINTSTRING(a, f) \
-    if ( a && *(a) )  \
-      printf ("%s %s", f, a); 
-
 static int
-fieldspec_print ( char *cmd, FIELDSPEC *cs)
+formspec_print ( formname, form)
+	char *formname;
+ 	FORMSPEC *form;
 {
+	
+  FORMFIELDSPEC **l;
   char *x;
-	char *string;
 
-  printf ("fieldspec ");
-
-  string = NULL;
-	if ( cs->fieldtype == FIELDTYPE_FLAG)
-		string = "flag";
-	else if ( cs->fieldtype == FIELDTYPE_FLAGWITHVALUE)
-		string = "flagwithvalue";
-	else if ( cs->fieldtype == FIELDTYPE_POSITIONAL)
-		string = "positional";
-	else if ( cs->fieldtype == FIELDTYPE_UPTOLAST)
-		string = "uptolast";
-	else if ( cs->fieldtype == FIELDTYPE_LAST)
-		string = "last";
-	else if ( cs->fieldtype == FIELDTYPE_REST)
-		string = "rest";
-  CONDITIONALSQPRINTSTRING(string, "+fieldtype");
-  CONDITIONALSQPRINTSTRING(cs->hinttext, "+hinttext")
-  CONDITIONALSQPRINTSTRING(cs->helptext, "+helptext")
-  CONDITIONALSQPRINTSTRING(cs->label, "+label")
-  CONDITIONALSQPRINTSTRING(cs->compspec, "+compspec")
-  CONDITIONALSQPRINTSTRING(cs->flag, "+flag")
-
-  printf ("%s\n", cmd);
-
+  printf ("formspec ");
+  
+  printf("+screenfieldlist ");
+  for(l=form->screenfieldlist; *l; l++)
+  {
+      printf("%s ", (*l)->fieldspecname);
+  }
+  printf("+generationformlist ");
+  for(l=form->generationfieldlist; *l; l++)
+  {
+      printf("%s ", (*l)->fieldspecname);
+  }
+  CONDITIONALSQPRINTSTRING(form->command, "+command")
+  CONDITIONALSQPRINTSTRING(formname, "+formname")
+  printf("\n");
   return (0);
 }
 
-/*
-	Helper function called to print a field spec from a walk
-	of field spec hash
- */
 static int
-fieldspec_printitem ( BUCKET_CONTENTS *item)
+formspec_printitem (item)
+BUCKET_CONTENTS *item;
 {
-  FIELDSPEC *cs;
-  char *cmd;
+  FORMSPEC *formspec;
+  char *formname;
 
-  cmd = item->key;
-  cs = (FIELDSPEC *)item->data;
+  formname = item->key;
+  formspec = (FORMSPEC *)item->data;
 
-  return (fieldspec_print (cmd, cs));
+  return (formspec_print (formname, formspec));
 }
 
-/*
-	Print all field specs by walking hash
+/* 
+	Print all form specifiers by walking hash
  */
 static void
-fieldspec_printall ()
+formspec_printall ()
 {
-  fieldspecs_walk (fieldspec_printitem);
+  formspecs_walk (formspec_printitem);
 }
 
-/*
- 	Print all field spec in a list 
+/* 
+	Print a list of form specifiers
  */
 static int
-fieldspec_printlist (list)
-     WORD_LIST *list;
+formspec_printlist (list)
+ WORD_LIST *list;
 {
   WORD_LIST *l;
-  FIELDSPEC *cs;
+  FORMSPEC *cs;
   int ret;
 
   for (ret = EXECUTION_SUCCESS, l = list; l; l = l->next)
     {
-      cs = fieldspec_search (l->word->word);
+      cs = formspec_search (l->word->word);
       if (cs)
-	fieldspec_print (l->word->word, cs);
+	formspec_print (l->word->word, cs);
       else
 	{
-	  builtin_error ("%s: no fieldspec specification", l->word->word);
+	  builtin_error ("%s: no formspec specification", l->word->word);
 	  ret = EXECUTION_FAILURE;
 	}
     }
@@ -519,7 +2318,7 @@ fieldspec_printlist (list)
 $BUILTIN formspec
 $DEPENDS_ON COMMAND_FORMS
 $FUNCTION formspec_builtin
-$SHORT_DOC formspec [-pr] +screenfieldlist fieldname ... +generationfieldlist field name ... +commands cmd ...
+$SHORT_DOC formspec [-pr] +screenfieldlist fieldname ... +generationfieldlist field name ... +command cmd +formname formname ...
 This command defines a type of form for display of a command form.
 $END
 
@@ -533,7 +2332,8 @@ $END
 
 /* Add, remove, and display form specifiers. */
 int
-formspec_builtin ( WORD_LIST *list)
+formspec_builtin(list)
+	WORD_LIST *list;
 {
   int rval;
   FORMSPEC *fs;
@@ -542,15 +2342,23 @@ formspec_builtin ( WORD_LIST *list)
   WORD_LIST *lll;
   WORD_LIST *screenfieldlist = (WORD_LIST *)0;
   WORD_LIST *generationfieldlist = (WORD_LIST *)0;
-  WORD_LIST *commandlist = (WORD_LIST *)0;
+  WORD_LIST *formname = (WORD_LIST *)0;
+  char *command;
 
   int pflag= 0;
   int rflag= 0;
   int screenfieldcount = 0;
   int generationfieldcount = 0;
+  
+  int displaylevelscount = 0;
+  int displaylevelslength = 0;
+  WORD_LIST *displaylevelslist = (WORD_LIST *)0;
+  
   int i;
   int j;
+  
 
+  command = NULL;
 
   if (list == 0)
     {
@@ -558,7 +2366,7 @@ formspec_builtin ( WORD_LIST *list)
       return (EXECUTION_SUCCESS);
     }
 
-  for (l = list; l; l = l->next)
+  for (l = list; l; )
   {
   	if ( strcmp("-p", l->word->word) == 0)
 	{
@@ -574,8 +2382,10 @@ formspec_builtin ( WORD_LIST *list)
 		screenfieldlist= l->next;
 		for(ll=l->next; ll; ll = ll->next)
 		{
-			if ( ll->word->word[0] == '+' )
-				break;
+			if ( ll->word->word[0] == '+' ) {
+				 l = ll;
+				goto next;
+			}
 			else
 				screenfieldcount++;
 			if ( (FIELDSPEC *)0 == fieldspec_search(ll->word->word) )
@@ -593,8 +2403,10 @@ formspec_builtin ( WORD_LIST *list)
 		generationfieldlist= l->next;
 		for(ll=l->next; ll; ll = ll->next)
 		{
-			if ( ll->word->word[0] == '+' )
-				break;
+			if ( ll->word->word[0] == '+' ) {
+				l = ll;
+				goto next;
+				}
 			else
 				generationfieldcount++;
 			if ( (FIELDSPEC *)0 == fieldspec_search(ll->word->word) )
@@ -606,16 +2418,39 @@ formspec_builtin ( WORD_LIST *list)
 			l = ll;
 		}
 	}
-	else if ( strcmp("+commands", l->word->word) == 0)
+		else if ( strcmp("+displaylevels", l->word->word) == 0)
+		{
+			displaylevelslist= l->next;
+			displaylevelslength = 0;
+			displaylevelscount = 0;
+			/* Determine the length the values string will need 
+				Note: Last word is always command */
+			for ( ll = l->next; ll->next; ll = ll->next)
+			{
+				if ( ll->word->word[0] == '+' )
+				{
+					l = ll;
+					goto next;
+				}
+				else
+					{
+					displaylevelslength += strlen(ll->word->word) + 1;
+					displaylevelscount++;
+					}
+				
+			}
+			l = ll;
+		}
+	CHECKFORSTRINGARG("+command", command)
+	else if (strcmp("+formname", l->word->word) == 0)
 	{
-		/* Check for consistancy */
-		commandlist= l->next;
-		break;
+		formname = l->next;
+		l = l->next;
 	}
-	else
-	{
-	  break;
-	}
+	l = l->next;
+next:
+	;
+
  }
 
 
@@ -644,8 +2479,9 @@ formspec_builtin ( WORD_LIST *list)
           return (remove_formspecs (l));
     }
 
-  if (commandlist == 0 )
+  if (formname == 0 )
     {
+      builtin_error("no formname");
       builtin_usage ();
       return (EX_USAGE);
     }
@@ -663,7 +2499,7 @@ formspec_builtin ( WORD_LIST *list)
 	  for (j=0, lll=generationfieldlist; j<generationfieldcount; j++, lll= lll->next)
 	    {
 	    if ( 0 ==  strcmp( ll->word->word, lll->word->word) )
-		break;
+				break;
 	    }
 	  if ( lll == (WORD_LIST *)0)
 	  {
@@ -685,12 +2521,14 @@ formspec_builtin ( WORD_LIST *list)
 	fs->screenfieldlist[i]= (FORMFIELDSPEC *)xmalloc(sizeof(FORMFIELDSPEC));
 	fs->screenfieldlist[i]->fieldspec= fieldspec_search(ll->word->word);
 	fs->screenfieldlist[i]->fieldspecname= savestring(ll->word->word);
+	fs->screenfieldlist[i]->crosslink= 0;
 	fieldspec_retain(fs->screenfieldlist[i]->fieldspec);
 	if ( generationfieldcount == 0)
 	{
 		fs->generationfieldlist[i]= (FORMFIELDSPEC *)xmalloc(sizeof(FORMFIELDSPEC));
 		fs->generationfieldlist[i]->fieldspec= fieldspec_search(ll->word->word);
 		fs->generationfieldlist[i]->fieldspecname= savestring(ll->word->word);
+		fs->generationfieldlist[i]->crosslink= 0;
 	}
   }
   fs->screenfieldlist[screenfieldcount] = (FORMFIELDSPEC *)0;
@@ -698,14 +2536,77 @@ formspec_builtin ( WORD_LIST *list)
   if ( generationfieldcount != 0)
     for (i=0, ll=generationfieldlist; i<generationfieldcount; i++, ll= ll->next)
     {
-	fs->generationfieldlist[i]= (FORMFIELDSPEC *)xmalloc(sizeof(FORMFIELDSPEC));
-	fs->generationfieldlist[i]->fieldspec= fieldspec_search(ll->word->word);
-	fs->generationfieldlist[i]->fieldspecname= savestring(ll->word->word);
+		fs->generationfieldlist[i]= (FORMFIELDSPEC *)xmalloc(sizeof(FORMFIELDSPEC));
+		fs->generationfieldlist[i]->fieldspec= fieldspec_search(ll->word->word);
+		fs->generationfieldlist[i]->fieldspecname= savestring(ll->word->word);
+		fs->generationfieldlist[i]->crosslink= 0;
     }
   fs->generationfieldlist[screenfieldcount] = (FORMFIELDSPEC *)0;
   fs->fieldcount = screenfieldcount;
 
-  list = commandlist;
+  /* Cross link screen and generation lists */
+	for ( i = 0; i < screenfieldcount; i++)
+	{
+		/* Look for match generation field by matching fieldspec */
+		for ( j=0; j< screenfieldcount; j++)
+		{
+			if ( fs->screenfieldlist[i]->fieldspec 
+				== fs->generationfieldlist[j]->fieldspec )
+			{
+				/* If generation field list entry not linked */
+				if ( fs->generationfieldlist[j]->crosslink == 0)
+				{
+					/* Cross link field list entries */
+					fs->generationfieldlist[j]->crosslink = fs->screenfieldlist[i];
+					fs->screenfieldlist[i]->crosslink = fs->generationfieldlist[j];
+					break;
+				}
+				/* Otherwise look for next match ie duplicate fieldspecs */
+			}
+		}
+		if ( j == screenfieldcount)
+		{
+		/* OUCH - deep error */
+			
+			builtin_error ("%s: Fields in screenfieldlist and generationfieldlist do no match (unmatch duplicate)", fs->screenfieldlist[i]->fieldspecname);
+			formspec_dispose(fs);
+			goto usage_error;
+		}
+	}
+	fs->command = command;
+
+	if ( displaylevelscount > 0)
+	{
+	  char *op;
+
+	  fs->displaylevels = xmalloc((unsigned int)((displaylevelscount + 1) * sizeof(char *)) );
+	  fs->displaylevels[0] = xmalloc((unsigned int)displaylevelslength);
+
+	  op = fs->displaylevels[0];
+	  for(i=0, ll = displaylevelslist; ll->next; i++, ll = ll->next)
+		{
+			if ( ll->word->word[0] == '+' )
+				break;
+			else
+			{
+				char *ip;
+				ip =  ll->word->word;
+				fs->displaylevels[i] = op;
+				while( (*op++ = *ip++) ) ;
+			}
+			
+		}
+		fs->displaylevels[displaylevelscount] = 0;
+	}
+	else
+	{
+		/* Default display level if not specified */
+		fs->displaylevels = xmalloc(sizeof(char *) * 2);
+		fs->displaylevels[0] = STRDUP("general");
+		fs->displaylevels[1] = 0;
+	}
+
+  list = formname;
   for (rval = EXECUTION_SUCCESS ; list; list = list->next)
     {
       /* Add formspec  as the formspec for the specified forms. */
@@ -720,99 +2621,6 @@ usage_error:
 	return EX_USAGE;
 }
 
-/*
-	Remove all form specifiers 
- */
-static int
-remove_formspecs (list)
-     WORD_LIST *list;
-{
-
-  WORD_LIST *l;
-  int ret;
-
-  for (ret = EXECUTION_SUCCESS, l = list; l; l = l->next)
-    {
-      if (formspec_remove (l->word->word) == 0)
-	{
-	  builtin_error ("%s: no formspec specification", l->word->word);
-	  ret = EXECUTION_FAILURE;
-	}
-    }
-  return ret;
-}
-
-/* 
-	Print a form specifier
- */
-static int
-formspec_print ( char *cmd, FORMSPEC *form)
-{
-	
-  FORMFIELDSPEC **l;
-
-  printf ("formspec ");
-  
-  printf("+screenfieldlist ");
-  for(l=form->screenfieldlist; *l; l++)
-  {
-      printf("%s ", (*l)->fieldspecname);
-  }
-  printf("+generationformlist ");
-  for(l=form->generationfieldlist; *l; l++)
-  {
-      printf("%s ", (*l)->fieldspecname);
-  }
-  printf ("%s\n", cmd);
-
-  return (0);
-}
-
-static int
-formspec_printitem ( BUCKET_CONTENTS *item)
-{
-  FORMSPEC *cs;
-  char *cmd;
-
-  cmd = item->key;
-  cs = (FORMSPEC *)item->data;
-
-  return (formspec_print (cmd, cs));
-}
-
-/* 
-	Print all form specifiers by walking hash
- */
-static void
-formspec_printall (void)
-{
-  formspecs_walk (formspec_printitem);
-}
-
-/* 
-	Print a list of form specifiers
- */
-static int
-formspec_printlist ( WORD_LIST *list)
-{
-  WORD_LIST *l;
-  FORMSPEC *cs;
-  int ret;
-
-  for (ret = EXECUTION_SUCCESS, l = list; l; l = l->next)
-    {
-      cs = formspec_search (l->word->word);
-      if (cs)
-	formspec_print (l->word->word, cs);
-      else
-	{
-	  builtin_error ("%s: no formspec specification", l->word->word);
-	  ret = EXECUTION_FAILURE;
-	}
-    }
-  return (ret);
-}
-
 $BUILTIN form
 $DEPENDS_ON COMMAND_FORMS
 $FUNCTION form_builtin
@@ -820,1094 +2628,34 @@ $SHORT_DOC form [-x]  [-l] command arg1 arg2 ..
 Display the form for the command.
 $END
 
-static rl_hook_func_t *old_rl_startup_hook = (rl_hook_func_t *)NULL;
-static int screenform_displayvalue(void);
-static void screenfield_setwithdisplayvalue(SCREENFIELD *screenfield, char *displayvalue, int partial);
-static void screenfield_setwithindex(SCREENFIELD *screenfield, int valueindex);
 
 
-static int cf_readline_initialized = 0;
-static CF_EDIT_MODE cf_edit_mode = CF_MODE_FORM;
-static CF_EXECUTION_MODE cf_execution_mode = CF_MODE_DISPLAY;
-static Keymap cf_keymap;
 
-static int fieldspec_displayvalueindex(FIELDSPEC *fieldspec, char *displayvalue,
-		int partial);
 
-/*
-	Function to process a key key press. Called from the 
-	keymap table during readline.
-	The function either inserts the type character or if 
-	the field has a display value list, it navigates between 
-	displayvalue.
+
+/* 
+	Execute a form
  */
-static int cf_insert_or_cycle_screenfield ( int count, int c)
+int
+form_builtin (list)
+	WORD_LIST *list;
 {
-	SCREENFIELD *screenfield ;
-	char buff[2];
-	int valueindex;
-	
-	buff[0] = (char)c;
-	buff[1] = '\0';
-
-
-	if ( cf_screenform )
-	{
-		screenfield = cf_screenform->currentscreenfield;
-		/* If value to display mapping */
-		if ( screenfield->fieldspec->valuescount > 1)
-		{
-			if ( c == ' ')
-			{
-				if ( screenfield->currentvalueindex == -1)
-				{
-					screenfield_setwithindex(screenfield, 0);
-				} 
-				else if ( screenfield->currentvalueindex < 
-						(screenfield->fieldspec->valuescount-1) )
-				{
-					screenfield_setwithindex(screenfield, 
-						screenfield->currentvalueindex + 1);
-				}
-				else
-				{
-					screenfield_setwithindex(screenfield, 
-						0);
-				}
-			}
-			else
-			{
-				/* Set with partial match */
-				valueindex = fieldspec_displayvalueindex(screenfield->fieldspec, 
-						buff, 1);
-				if ( valueindex != -1)
-				{
-					screenfield_setwithindex(screenfield, valueindex);
-				}
-				else
-				{
-					rl_ding();
-				}
-			}
-			rl_replace_line(screenfield->displayvalue, 0);
-			rl_point = rl_end;
-			rl_mark = 0;
-			return 0;
-		}
-	}
-
-	/* Otherwise */
-	return rl_insert(count, c);
-} 
-/*
- 	Process Right arrow key
- */
-static int cf_right_arrow_key(int count, int c)
-{
-	SCREENFIELD *screenfield ;
-
-	if ( cf_screenform )
-	{
-		screenfield = cf_screenform->currentscreenfield;
-		/* If value to display mapping */
-		if ( screenfield->fieldspec->valuescount > 1)
-		{
-			if ( screenfield->currentvalueindex < 
-					(screenfield->fieldspec->valuescount-1) )
-			{
-				screenfield_setwithindex(screenfield, 
-					screenfield->currentvalueindex + 1);
-			}
-			else
-			{
-				screenfield_setwithindex(screenfield, 
-					0);
-			}
-			rl_replace_line(screenfield->displayvalue, 0);
-			rl_point = rl_end;
-			rl_mark = 0;
-			return 0;
-		}
-#if defined(SELECTFROMCOMPLETION)
-		else if (screenfield->completionlist)
-		{
-			if ( screenfield->completioncurrentindex == -1 )
-			{
-				screenfield->completioncurrentindex = 
-					screenfield->completionstartindex;
-			}
-			else if ( screenfield->completioncurrentindex < 
-				(screenfield->completionlist->list_len - 1) )
-			{
-				screenfield->completioncurrentindex++;
-			}
-			screenfield_setwithdisplayvalue(screenfield,
-				screenfield->completionlist
-					->list[screenfield->completioncurrentindex]
-					, 0);
-			rl_replace_line(screenfield->displayvalue, 0);
-			rl_point = rl_end;
-			rl_mark = 0;
-			return 0;
-			
-		}
-#endif
-	}
-	/* Otherwise */
-	return rl_forward_char (count, c);    
-}
-/*
- 	Process left  arrow key
- */
-static int cf_left_arrow_key(int count, int c)
-{
-	SCREENFIELD *screenfield;
-
-	if ( cf_screenform )
-	{
-		screenfield = cf_screenform->currentscreenfield;
-		/* If value to display mapping */
-		if ( screenfield->fieldspec->valuescount > 1)
-		{
-			if ( screenfield->currentvalueindex > 0  
-					)
-			{
-				screenfield_setwithindex(screenfield, 
-					screenfield->currentvalueindex - 1);
-			}
-			else
-			{
-				screenfield_setwithindex(screenfield, 
-					screenfield->fieldspec->valuescount - 1);
-			}
-			rl_replace_line(screenfield->displayvalue, 0);
-			rl_point = rl_end;
-			rl_mark = 0;
-			return 0;
-		}
-#if defined(SELECTFROMCOMPLETION)
-		else if (screenfield->completionlist)
-		{
-			if ( screenfield->completioncurrentindex == -1 )
-			{
-				screenfield->completioncurrentindex = 
-					screenfield->completionnextindex-1;
-			}
-			if ( screenfield->completioncurrentindex > 0)
-			{
-				screenfield->completioncurrentindex--;
-				screenfield_setwithdisplayvalue(screenfield,
-					screenfield->completionlist
-						->list[screenfield->completioncurrentindex]
-						, 0);
-				rl_replace_line(screenfield->displayvalue, 0);
-				rl_point = rl_end;
-				rl_mark = 0;
-				return 0;
-			}
-			
-		}
-#endif
-	}
-    return rl_backward_char (count, c);
-}
-
-/*
-	Process up arrow key
-	Set navigation to previous field and complete entry of the field.
-	
- */
-static int cf_up_arrow_key(int count, int c)
-{
-	if ( cf_screenform )
-	{
-		cf_screenform->nextnavigation = CF_PREVIOUS_FIELD;
-	}
-    return rl_newline (count, c);
-}
-/*
-	Process down arrow key
-	Set navigation to next field and complete entry of the field.
-	
- */
-static int cf_down_arrow_key(int count, int c)
-{
-	if ( cf_screenform )
-	{
-		cf_screenform->nextnavigation = CF_NEXT_FIELD;
-	}
-    return rl_newline (count, c);
-}
-/*
- 	Process redraw key sequence - Ctrl L
-	Cycle display level and redraw the form
- */
-static int cf_redraw(int count, int c)
-{
-	if ( cf_screenform )
-	{
-		cf_screenform->nextnavigation = CF_REDRAW;
-	}
-    return rl_newline (count, c);
-}
-static void screenform_hint(SCREENFORM *screenform, char *hint);
-
-/*
-	Callback function call by display_matches (readline library) to display the 
-	possible matches on the hint line for automatic completion
- */
-static void cf_display_matches(char **matches, int length, int max)
-{
-
-		
-	STRINGLIST *sl;
-	char *buff;
+	int rval;
+	FORMSPEC *form;
+	FORMFIELDSPEC **fieldlist;
+	FIELDSPEC *field;
+	FIELDSPEC *prevfield;
 	SCREENFIELD *screenfield;
 	SCREENFORM *screenform;
-	FIELDSPEC *field;
-	int i;
-	int len;
-	
-	
-
-	if ( ! cf_screenform )
-		return;
-
-
-	/* Context */
-	screenform = cf_screenform;
-	field = screenform->currentscreenfield->fieldspec;
-	screenfield = screenform->currentscreenfield;
-
-	/* Set up buffer */
-	buff = xmalloc((unsigned int)(screenform->width+1));
-	buff[0] = '\0';
-	len = 0;
-
-	/* First in list of displayed */
-	if ( screenfield->completionlist )
-	{
-		if ( screenfield->completionnextindex >= 
-					screenfield->completionlist->list_len )
-			screenfield->completionstartindex = 0;
-		else
-			screenfield->completionstartindex = 
-						screenfield->completionnextindex;
-		for ( i = screenfield->completionstartindex,
-				sl = screenfield->completionlist; i < sl->list_len; i++)
-		{
-			len += strlen(sl->list[i]) + 1;
-			if ( len >=  screenform->width )
-			{
-				break;
-			}
-			else
-			{
-				strcat(buff, sl->list[i]);
-				strcat(buff, " ");
-			}
-		}
-		screenfield->completionnextindex = i;
-	}
-	/* exit displaying buffer */
-	screenform_hint(screenform, buff);
-	free(buff);
-
-    rl_forced_update_display ();
-	
-}
-/*
-	Call by rl_completion_match (readline library) to pick up 
-	all possible completions
- */
-static char *cf_complete_return(const char *text, int state)
-{
-	static int valueindex = 0;
-	char *string;
-
-	if ( state == 0)
-		valueindex = 0;
-	
-	if ( cf_screenform && cf_screenform->currentscreenfield &&
-		cf_screenform->currentscreenfield->completionlist &&
-		valueindex < (cf_screenform->currentscreenfield
-				->completionlist->list_len - 1 ))
-	{
-		/* Not sure if we need to dupe here */
-			string = 
-				STRDUP(cf_screenform->currentscreenfield->completionlist->list[valueindex]);
-			valueindex ++;
-			return string;
-	}
-	else
-		return NULL;
-}
-/* 
-	Called via rl_attempted_completion global valiable
-	Calculates a list of possible matches and the lowest common denominator
-	and sets up if required the display of options on the hint line.
- */
-static char **cf_completion( const char *text,int start, int end)
-{
-
-	SCREENFIELD *screenfield;	
-	FIELDSPEC *field;
-	int newlist;
-	COMPSPEC *cs;
-	STRINGLIST *sl = NULL;
-	char **matches;
-	static char *value = NULL;
-
-	
-	/* Sanity check */
-	if ( ! cf_screenform )
-		return NULL;
-
-	/* Context */
-	screenfield = cf_screenform->currentscreenfield;
-
-	field = screenfield->fieldspec;
-
-	newlist = 1;
-
-	/* Locate */
-	if ( value )
-	{
-		if ( strcmp(value, text) != 0 )
-		{
-			/* Value changed so save new value */
-			free(value);
-			value = STRDUP(text);
-		}
-		else 
-		{
-			/* Display next from completion list */
-			newlist = 0;
-		}
-	}
-	else
-	{
-		value = STRDUP(text);
-	}
-
-	/* If newlist required then dispose of old list */
-	if ( newlist && screenfield->completionlist)
-	{
-		strlist_dispose(screenfield->completionlist);
-		screenfield->completionlist = 0;
-		screenfield->completioncurrentindex = -1;
-	}
-
-	if ( newlist || !screenfield->completionlist )
-	{
-		if ( field->compspec)
-		{
-			cs = progcomp_search(field->compspec);
-			if ( cs )
-				sl = gen_compspec_completions(cs, "compgen", 
-						text, 0, 0);
-			else
-			{
-				sl = NULL;
-				fprintf(stderr, "Invalid completion spec for field %s\n",
-					field->compspec);
-			}
-
-		}
-		else
-		{
-			/* No completion spec so files and directories */
-			cs = compspec_create();
-			cs->actions = CA_FILE | CA_DIRECTORY;
-			sl = gen_compspec_completions(cs, "compgen", 
-					text, 0, 0);
-			compspec_dispose(cs);
-		}
-		screenfield->completionlist = sl  ;
-		screenfield->completionstartindex = 0  ;
-		screenfield->completionnextindex = 0  ;
-		screenfield->completioncurrentindex = -1  ;
-	}
-	else
-	{
-		screenfield->completionstartindex = screenfield->completionnextindex;
-		if ( screenfield->completionstartindex >= 
-				screenfield->completionlist->list_len )
-		{
-			screenfield->completionstartindex = 0;
-		}
-	}
-
-
-	/* */
-	matches = rl_completion_matches(text, cf_complete_return);
-	return matches;
-}
-
-
-/*
-	Initialise the keymap to be used for form input by cloning
-	the current keymap
- */
-static void cf_initialize_readline(void)
-{
-	static Keymap base_keymap = NULL;
-	Keymap current_keymap;
-	int i;
-
-
-	current_keymap = rl_get_keymap();
-
-	/* if base keymap still current - do nothing */
-	if ( base_keymap != NULL
-		&& base_keymap == current_keymap)
-		return;
-
-	/* if a different keymap is used free the command forms keymap */
-	if ( base_keymap != NULL
-		&& base_keymap != current_keymap 
-		&& cf_keymap != NULL)
-	{
-		/* A different keymap is being used - recalculate keymap */
-		rl_discard_keymap(cf_keymap);
-		cf_keymap = NULL;
-	}
-
-	/* Record the keymap we based things on */
-	base_keymap = current_keymap;
-
-	/* Setup form keymaps by cloning other keymaps */
-	cf_keymap = rl_copy_keymap(current_keymap);
-	rl_set_keymap(cf_keymap);
-	
-	for (i = 0; i < KEYMAP_SIZE; i++)
-	{
-	    /* Replace rl_insert with cf_inser_or_navigate */
-		if ( current_keymap[i].function ==
-			rl_insert)
-		{
-			cf_keymap[i].function = cf_insert_or_cycle_screenfield;
-		}
-    }
-
-	/* Disconnect from other sub keymaps */
-	cf_keymap[ESC].function = (rl_command_func_t *)0x0;
-	cf_keymap[ESC].type = ISFUNC;;
-	
-	/* Set arrow keys */
-	rl_set_key( "\033[A", cf_up_arrow_key , cf_keymap);
-	rl_set_key( "\033[B", cf_down_arrow_key , cf_keymap);
-	rl_set_key( "\033[C", cf_right_arrow_key , cf_keymap);
-	rl_set_key( "\033[D", cf_left_arrow_key , cf_keymap);
-
-
-	/* Set arrow keys */
-	rl_set_key( "\033[A", cf_up_arrow_key , cf_keymap);
-	rl_set_key( "\033[B", cf_down_arrow_key , cf_keymap);
-	rl_set_key( "\033[C", cf_right_arrow_key , cf_keymap);
-	rl_set_key( "\033[D", cf_left_arrow_key , cf_keymap);
-
-	/* Set redraw */
-	cf_keymap[CTRL('l')].function = cf_redraw;
-	cf_keymap[CTRL('l')].type = ISFUNC;;
-
-	/* Set redraw */
-	cf_keymap[CTRL('l')].function = cf_redraw;
-	cf_keymap[CTRL('l')].type = ISFUNC;;
-
-	
-	rl_set_keymap(current_keymap);
-	
-	/* Mark as initialized */
-	cf_readline_initialized = 1;
-}
-
-/*
-	Set up the read line environmnent and call readline.
-	Readline will redraw the label of the current screen field
-	from the start of the line and will process input. 
-	
-	A call back function is used to populate the readline input
-	with the display value of the field.
-	
-	Functions call from the "keymap" set the "next navigation" field
-	of the global cf_screenform. This communicates the processing
-	of up and down arrows to navigate between screen fields.
-
-	The screen field value and display value are set from the 
-	string returned by readline.
-*/
-extern int _rl_horizontal_scroll_mode;
-static void
-screenform_editscreenfield(SCREENFORM *screenform)
-{
-  char *ret;
-  rl_completion_func_t *old_attempted_completion_function;
-  rl_compdisp_func_t *old_completion_display_matches_hook;
-  Keymap old_keymap;
-  int old_rl_horizontal_scroll_mode;
-
-	if (!bash_readline_initialized)
-		initialize_readline ();
-
-	if ( !cf_readline_initialized )
-		cf_initialize_readline();
-
-	/* Save readline state */
-	old_keymap = rl_get_keymap();
-	old_attempted_completion_function = rl_attempted_completion_function;
-	old_completion_display_matches_hook = rl_completion_display_matches_hook;
-	old_rl_horizontal_scroll_mode = _rl_horizontal_scroll_mode;
-
-
-	/* Save the startup hook - restored in call back */
-	old_rl_startup_hook = rl_startup_hook;
-
-	/* Set call back to display contents of field */
-	rl_startup_hook = screenform_displayvalue;
-
-	/* Set custom completion functions */
-	rl_attempted_completion_function = cf_completion;
-	rl_completion_display_matches_hook = cf_display_matches;
-
-	/* XXXXXX Set required key map */
-	rl_set_keymap(cf_keymap);
-
-	/* Set horizontal scroll mode */
-	_rl_horizontal_scroll_mode = 1;
-
-	/* Read line of input redisplaying field label */
-	ret = readline(screenform->currentscreenfield->label);
-
-	/* Restore readline state */
-	rl_attempted_completion_function = old_attempted_completion_function;
-	rl_set_keymap(old_keymap);
-	_rl_horizontal_scroll_mode = old_rl_horizontal_scroll_mode;
-	rl_completion_display_matches_hook = old_completion_display_matches_hook;
-	
-	/* Set the value using the displayed data */
-	screenfield_setwithdisplayvalue(screenform->currentscreenfield, ret, 0);
-}
-
-/*
-	This function is called from within readline and "pretends" to have 
-	"inserted" the value of the current screen form field.
-	The effect is to display the value of the field and position the 
-	cursor at the start of the field. The use can then use the readline edit
-	commands to edit the value.
- */
-static int
-screenform_displayvalue (void)
-{
-  if (cf_screenform->currentscreenfield->value)
-    {
-      rl_insert_text (cf_screenform->currentscreenfield->displayvalue);
-		/* If field wider than display width set edit point at start of field */
-	  if ( (strlen(cf_screenform->currentscreenfield->displayvalue)
-			+  cf_screenform->maxlabelwidth + 3)
-			> cf_screenform->width )
-		  rl_point = 0;
-    }
-  rl_startup_hook = old_rl_startup_hook;
-  return 0;
-}
-
-/*
-	Determine the index into the translation table for a value.
- */
-static int fieldspec_valueindex(FIELDSPEC *fieldspec, char *value)
-{
-	int i;
-	for (i=0; i<fieldspec->valuescount; i++)
-	{
-		if (strcmp(fieldspec->values[i], value) == 0 )
-			return i;
-	}
-	return -1;
-}
-/*
-	Determine the index into the translation table for a display value.
- */
-static int fieldspec_displayvalueindex(FIELDSPEC *fieldspec, char *displayvalue,
-		int partial)
-{
-	int i;
-	int len = strlen(displayvalue);
-
-	for (i=0; i<fieldspec->valuescount; i++)
-	{
-		if ( partial )
-		{
-			if (strncasecmp(fieldspec->displayvalues[i], displayvalue, (unsigned int)len) == 0 )
-				return i;
-		}
-		else
-		{
-			if (strcmp(fieldspec->displayvalues[i], displayvalue) == 0 )
-				return i;
-		}
-	}
-	return -1;
-}
-/*
-	Set the value of a screen field according to the index into the 
-	table of allowable values for the field. The display value is set
-	and the value for generation of the command.
- */
-static void screenfield_setwithindex(SCREENFIELD *screenfield, int valueindex)
-{
-  FIELDSPEC *fieldspec;
-
-	fieldspec = screenfield->fieldspec;
-
-	/* Free existing values */
-	if ( screenfield->value )
-	{
-		free(screenfield->value);
-		screenfield->value = NULL;
-	}
-	if ( screenfield->displayvalue )
-	{
-		free(screenfield->displayvalue);
-		screenfield->displayvalue = NULL;
-	}
-
-	if ( valueindex < fieldspec->valuescount &&
-		valueindex > -1 )
-	{
-		screenfield->currentvalueindex = valueindex;
-		screenfield->value = STRDUP(fieldspec->values[valueindex]);
-		screenfield->displayvalue = STRDUP(fieldspec->displayvalues[valueindex]);
-	}
-	else
-	{
-	fprintf(stderr, "\n\n\n\n screenfield_setwithindex - invalid index %d where  valuescount is %d\n", valueindex, fieldspec->valuescount);	
-	}
-
-}
-/*
-	Set the value of a screen field from the value to be place in the generated
-	command. If there is a translation between "value" and "display value" apply
- 	the translation to populate the display value of the field.
- */
-static void screenfield_setwithvalue(SCREENFIELD *screenfield, char *value)
-{
-  FIELDSPEC *fieldspec;
-  int valueindex;
-
-	fieldspec = screenfield->fieldspec;
-
-	/* Free existing values */
-	if ( screenfield->value )
-	{
-		free(screenfield->value);
-		screenfield->value = NULL;
-	}
-	if ( screenfield->displayvalue )
-	{
-		free(screenfield->displayvalue);
-		screenfield->displayvalue = NULL;
-	}
-
-	/* Set value and default index */
-	screenfield->value = STRDUP(value);
-
-	screenfield->currentvalueindex = -1;
-
-	/* If there is a display translation check if value matches */
-	if ( fieldspec->valuescount > 1 )
-	{
-		valueindex = fieldspec_valueindex(fieldspec, value);
-		if ( valueindex != -1 )
-		{
-			screenfield->displayvalue = 
-				STRDUP(fieldspec->displayvalues[valueindex]);
-			screenfield->currentvalueindex = valueindex;
-		}
-		else
-		{
-			screenfield->displayvalue = STRDUP(value);
-		}
-	}
-	else
-	{
-		screenfield->displayvalue = STRDUP(value);
-	}
-}
-/*
-	Set the value of a screen field from the value to be displayed. If there 
-	is a translation between "value" and "display value" apply the reverse to
-	populate the value of the field.
- */
-static void screenfield_setwithdisplayvalue(SCREENFIELD *screenfield, char *displayvalue, int partial)
-{
-  FIELDSPEC *fieldspec;
-  int valueindex;
-
-	fieldspec = screenfield->fieldspec;
-
-	/* Free existing values */
-	if ( screenfield->value )
-	{
-		free(screenfield->value);
-		screenfield->value = NULL;
-	}
-	if ( screenfield->displayvalue )
-	{
-		free(screenfield->displayvalue);
-		screenfield->displayvalue = NULL;
-	}
-
-	/* Set value and default index */
-
-	/* If there is a display translation check if value matches */
-	if ( fieldspec->valuescount > 1 )
-	{
-		valueindex = fieldspec_displayvalueindex(fieldspec, displayvalue, partial);
-		if ( valueindex != -1 )
-		{
-			screenfield_setwithindex(screenfield, valueindex);
-			return;
-		}
-	}
-
-	/* Otherwise  set everything as entered */
-	screenfield->currentvalueindex = -1;
-	screenfield->displayvalue = STRDUP(displayvalue);
-	screenfield->value = STRDUP(displayvalue);
-}
-/*
-	Append a string to a screen field
- */
-static void screenfield_appendtovalue(SCREENFIELD *screenfield, char *value)
-{
-	int length;
-	char *oldvalue;
-	char *newvalue;
-
-	if ( screenfield->value)
-	{
-		length = strlen(screenfield->value) + strlen(value) + 2;
-		oldvalue = screenfield->value;
-		newvalue = xmalloc((unsigned int)length);
-		strcpy(newvalue, oldvalue);
-		strcat(newvalue, " ");
-		strcat(newvalue, value);
-		screenfield_setwithvalue(screenfield, newvalue);
-		free(newvalue);
-	}
-	else
-	{
-		screenfield_setwithvalue(screenfield, value);
-	}
-}
-/* 
-	Populate the screen field values from the passed in arguments and 
-	set unspecificed arguments to their defaults.	
-*/
-static void screenform_populatefieldsfrompartialcommand(SCREENFORM *screenform, WORD_LIST *list)
-{
-	
-WORD_LIST *l;
-  FORMFIELDSPEC **fieldlist;
-  FORMFIELDSPEC **fl;
-  FIELDSPEC *fieldspec;
-  SCREENFIELD *screenfield;
-  int valueindex;
-  int found;
-
-
-	fieldlist = screenform->formspec->generationfieldlist;
-	for (l = list->next; l && *fieldlist; l = l->next)
-	{
-		fieldspec = (*fieldlist)->fieldspec;
-		screenfield = fieldspec->screenfield;
-
-		/* If next fieldspec is a flag then try to match
-		   the argument to any flags before the next positional argument */
-
-		if ( fieldspec->fieldtype == FIELDTYPE_FLAG
-			|| FIELDTYPE_FLAGWITHVALUE)
-		{
-			/* Check for matching flag arguments prior to next positional */
-			found = 0;
-
-			for (fl = fieldlist; *fl && 
-				( (*fl)->fieldspec->fieldtype == FIELDTYPE_FLAG ||
-				 (*fl)->fieldspec->fieldtype == FIELDTYPE_FLAGWITHVALUE); fl++)
-			{
-				fieldspec = (*fl)->fieldspec;
-				screenfield = fieldspec->screenfield;
-
-				/* Test for matching flag value */
-				if ( fieldspec->fieldtype == FIELDTYPE_FLAGWITHVALUE
-						&&  fieldspec->flag)
-				{
-					int flaglen = strlen(fieldspec->flag);
-
-					if ( strcmp(fieldspec->flag, l->word->word) == 0 ||
-							 (fieldspec->flag[flaglen-1] == ' ' &&
-							strncmp(fieldspec->flag, l->word->word,
-								flaglen-1) == 0) )
-					{
-						/* Should be another value */
-						if ( l->next )
-						{
-							/* Consume value */
-							screenfield_setwithvalue(screenfield, 
-								l->next->word->word);
-							l = l->next;
-						}
-						/* Consume argument 
-							but don't progress field list pointer  
-							as there may be other flags */
-						found = 1;
-						break;
-					}
-					else if ( strncmp(fieldspec->flag, l->word->word, 
-								flaglen) == 0)
-					{
-						/* split flag from word and set vallue */
-						screenfield_setwithvalue(screenfield,
-							l->word->word + flaglen);
-						found = 1;
-						break;
-					}
-
-				}
-				else
-				{
-					/* Check whether it matches the on or off values */
-					valueindex = fieldspec_valueindex(fieldspec, l->word->word) ;
-					if ( valueindex != -1 )
-					{
-						/* Set the value of the field */
-						screenfield_setwithindex(screenfield, valueindex);
-					
-						/* Consume argument 
-							but don't progress field list pointer  
-							as there may be other flags */
-						found = 1;
-						break;
-					}
-				}
-			}
-			/* If found then check next argument against flags */
-			if ( found )
-				continue;
-
-			if ( !*fl)
-			{
-				/* No more positional arguments -
-					all trailing */
-				fieldlist = fl;
-				break;
-			}
-			else
-			{
-				/* No matching flags so position to fieldspec  */
-				fieldlist = fl;
-				fieldspec = (*fieldlist)->fieldspec;
-				screenfield = fieldspec->screenfield;
-				/* Drop through */
-			}
-		}
-
-		/* If a position argument is next then use the value */
-		if ( fieldspec->fieldtype == FIELDTYPE_UPTOLAST)
-		{
-			/* If not last argument append to "UPTOLAST" field */
-			if ( l->next != NULL )
-			{
-				screenfield_appendtovalue(screenfield, l->word->word);
-				/* Note: Don't progress fieldlist */
-			}
-			else
-			{
-			/* Last argument so If next field is last field apply to that field */
-				if ( *(fieldlist+1) &&
-					(*(fieldlist+1))->fieldspec->fieldtype == FIELDTYPE_LAST)
-				{
-					screenfield_setwithvalue(
-						(*(fieldlist+1))->fieldspec->screenfield,l->word->word);
-				}
-				else
-				{
-			/* Note: if no  LAST field after UPTOLAST then add to UPTOLAST */
-					screenfield_appendtovalue(screenfield, l->word->word);
-				}
-			fieldlist++;
-			}
-		}
-		else if ( fieldspec->fieldtype == FIELDTYPE_POSITIONAL
-			|| fieldspec->fieldtype == FIELDTYPE_LAST)
-		{
-			/* Set value */
-			screenfield_setwithvalue(screenfield, l->word->word);
-			fieldlist++;
-		}
-
-		else if ( fieldspec->fieldtype == FIELDTYPE_REST)
-		{
-			/* Append all the rest to the field */
-			screenfield_appendtovalue(screenfield, l->word->word);
-			/* Note: Don't progress fieldlist */
-		}
-		else
-			fprintf(stderr, "\n\n\n\nInvalid field type %d\n\n\n\n",
-				fieldspec->fieldtype);
-	}
-
-	/* Set default values for unspecified fields */
-	for ( fieldlist = screenform->formspec->generationfieldlist ; *fieldlist; fieldlist++)
-	{
-		fieldspec = (*fieldlist)->fieldspec;
-		screenfield = fieldspec->screenfield;
-	
-		/* In value not populated then set default value */
-		if ( screenfield->value == NULL )
-			{
-			if ( fieldspec->values )
-				screenfield_setwithvalue(screenfield, fieldspec->values[0]);
-			}
-		
-			
-	}
-}
-
-/*
-	Determine the length of the generated argument
- */
-static int screenfield_generatedargumentlength(SCREENFIELD *screenfield)
-{
-	int len;
-
-		len = 0;
-
-		/* Length of flag */
-		if ( screenfield->fieldspec->flag)
-			len = strlen(screenfield->fieldspec->flag);
-
-		/* Length of value - if value then flag otherwise nothing */
-		if ( screenfield->value && strlen(screenfield->value) > 0)
-			return len + strlen(screenfield->value);
-		else
-			/* If not value do not include length of flag */
-			return 0;
-}
-
-/*
-	Navigate to the next displayable screen field and make that field current
-	Reports if there are no subsequent displayable fields.
- */
-static int screenform_gotonextfield(SCREENFORM *screenform)
-{
-SCREENFIELD *screenfield;
-SCREENFIELD *endofscreenfields;
-
-	screenfield = screenform->currentscreenfield;
-	endofscreenfields = (screenform->fieldcount-1) + screenform->screenfields;
-
-	/* Find next displayable field */
-	++screenfield;
-	while ( screenfield <= endofscreenfields )
-	{
-		if( screenfield->fieldspec->displaylevel <= screenform->displaylevel)
-		{
-			screenform_gotofield(screenform, screenfield);
-			return 1;
-		}
-		screenfield++;
-	}
-	/* No displayable fields found */
-	screenform_gotofield(screenform, screenform->currentscreenfield);
-	return 0;
-}
-/*
-	Navigate to the previous displayable screen field and make that field current
- */
-static void screenform_gotopreviousfield(SCREENFORM *screenform)
-{
-SCREENFIELD *screenfield;
-SCREENFIELD *endofscreenfields;
-
-	screenfield = screenform->currentscreenfield;
-	endofscreenfields = (screenform->fieldcount-1) + screenform->screenfields;
-
-	if ( screenfield == screenform->screenfields )
-	{
-		screenform_gotofield(screenform, screenfield);
-		rl_ding();
-		return;
-	}
-
-	screenfield--;
-	/* Look for next displayable field */
-	while ( screenfield >=  screenform->screenfields )
-	{
-		if( screenfield->fieldspec->displaylevel <= screenform->displaylevel)
-		{
-			screenform_gotofield(screenform, screenfield);
-			return;
-		}
-		/* Otherwise */
-		screenfield--;
-	}
-	/* No displayable fields found */
-	rl_ding();
-}
-/*
-	Generate the text to be put into the generated command for the screenfield
- */
-static char * screenfield_generateargument(SCREENFIELD *screenfield)
-{
+	WORD_LIST *l;
+	int commandlength;
+	char *command;
+	char *form_name;
+	char *cp;
+	char *ip;
+	int suppress_hint;
 	char *argument;
-	int len;
-
-		if ( screenfield->value )
-		{
-			len = strlen(screenfield->value);
-			if ( screenfield->fieldspec->flag &&	
-					len > 0)
-			{
-				len += strlen(screenfield->fieldspec->flag);
-				argument = xmalloc((unsigned int)len+1);
-				strcpy(argument, screenfield->fieldspec->flag);
-				strcat(argument, screenfield->value);
-			}
-			else
-			{
-				argument = xmalloc((unsigned int)len+1);
-				strcpy(argument, screenfield->value);
-			}
-			return argument;
-		}
-		else
-			return NULL;
-}
-
-/* 
-	Create a form specifier
- */
-
-
-int
-form_builtin (WORD_LIST *list)
-{
-  int rval;
-  FORMSPEC *form;
-  FORMFIELDSPEC **fieldlist;
-  FIELDSPEC *field;
-  SCREENFIELD *screenfield;
-  SCREENFORM *screenform;
-  WORD_LIST *l;
-  int commandlength;
-  char *command;
-  char *command_name;
-  char *cp;
-  char *ip;
-  int suppress_hint;
-  char *argument;
+	char **displaylevel;
 
 	l = list;
 
@@ -1934,8 +2682,8 @@ form_builtin (WORD_LIST *list)
 		l = l->next;
 	}
 	
-	command_name = l->word->word;
-	form= formspec_search (command_name);
+	form_name = l->word->word;
+	form= formspec_search (form_name);
 	
 	/* XXX If form not loaded then seach form path and load form */
 
@@ -1944,7 +2692,7 @@ form_builtin (WORD_LIST *list)
 	{
 
 		/* Instansiate screenform */
-		screenform = screenform_init(form, command_name);
+		screenform = screenform_init(form, form_name);
 
 		/* Layout form */
 		screenform_layout(screenform);
@@ -1959,7 +2707,7 @@ form_builtin (WORD_LIST *list)
 		screenform_gotofield(screenform, screenform->screenfields);
 
 		/* Length of command plus space plus null */
-		commandlength = strlen(command_name) + 2;
+		commandlength = strlen(form->command) + 2;
 
 		
 		/* Set global variable that will allow the 
@@ -2005,11 +2753,18 @@ form_builtin (WORD_LIST *list)
 						rl_crlf();
 
 					rl_crlf();
+					
 					/* Cycle display level */
-					if ( screenform->displaylevel == CF_DISPLAYLEVEL_ADVANCED)
-						screenform->displaylevel = CF_DISPLAYLEVEL_SIMPLE;
-					else
-						screenform->displaylevel++;
+					for(displaylevel = screenform->formspec->displaylevels; *displaylevel != 0; displaylevel++)
+					{
+						if (strcmp(*displaylevel, screenform->displaylevel) == 0)
+						{
+							screenform->displaylevel = *(displaylevel + 1);
+							break;
+						}
+					}
+					if ( screenform->displaylevel == 0)
+						screenform->displaylevel = screenform->formspec->displaylevels[0];
 
 					/* Re-layout and draw form */
 					screenform_layout(screenform);
@@ -2070,38 +2825,54 @@ form_builtin (WORD_LIST *list)
 			for(fieldlist=form->generationfieldlist; *fieldlist; fieldlist++)
 			{
 				field = (*fieldlist)->fieldspec;
-				screenfield = field->screenfield;
-				commandlength += screenfield_generatedargumentlength(screenfield) + 1;
+				screenfield = (*fieldlist)->screenfield;
+				commandlength += screenfield_generatedargumentlength(screenfield) ;
 			}
 
 			/* 2. Start with command name */
 
 			command = xmalloc((unsigned int)commandlength);
 			cp = command;
-			ip =  command_name;
+			ip =  form->command;
 			while ( (*cp++ = *ip++) ) ;
 			cp--;
+			*cp++ = ' ';
 			
 			/* 3. loop through the generate field list to construct command arguments */
+			prevfield = field;
 			for(fieldlist=form->generationfieldlist; *fieldlist; fieldlist++)
 			{
 				field = (*fieldlist)->fieldspec;
-				screenfield = field->screenfield;
+				screenfield = (*fieldlist)->screenfield;
 				argument =  screenfield_generateargument(screenfield);
 				
 				if ( argument )
 				{
+					/* If a separator is defined and it is the 
+					   same as the separator of the previous field */
+					if ( field->separator 
+							&& prevfield && prevfield->separator
+							&& strcmp(prevfield->separator,
+										 field->separator) == 0)
+					{
+							ip = field->separator;
+							while ((*cp++ = *ip++) ) ;
+							cp --;
+					}
+					else
+						*cp++ = ' ';
 					ip = argument;
-					*cp++ = ' ';
 					while ( (*cp++ = *ip++) ) ;
 					cp--;
 					free(argument);
+					prevfield = field;
 				}
 				/* 3. Release the value - not now needed */
 				free(screenfield->value);
 				free(screenfield->displayvalue);
 				free(screenfield->label);
 			}
+			*cp  = '\0';
 			/* Note that command already null terminated */
 
 			/* Free up screen fields */
@@ -2133,360 +2904,3 @@ form_builtin (WORD_LIST *list)
 }
 
 
-/* Helper  function to pass to tputs */
-static int local_output_char(int c)
-{
-	return putc(c, stderr);
-}
-
-/*
-	Change the current field and position the cursor to that the line of that
-	field either using <CR> or UP character sequences.
- */
-static void screenform_gotofield(SCREENFORM *screenform, SCREENFIELD *screenfield)
-{
-int i;
-int delta;
-
-	delta = screenform->currenty - screenfield->y;
-	if ( delta > 0 )
-	{
-		if (cf_edit_mode == CF_MODE_FORM &&   UP && *UP)
-			{
-				for( i=0; i < delta; i++)
-					tputs(UP, 1, local_output_char);
-			}
-	}
-	else
-	{
-		for( i=0; i < -delta; i++)
-		{
-			putc('\n', stderr);
-		}
-	}
-	screenform->currentscreenfield = screenfield;
-	screenform->currenty = screenfield->y;
-}
-
-/*
-	Draw text on the hint line of the screen by <CR> to
-	go to the hint line, drawing the text up to the screen width
-	and using the UP character sequence to go back to the line 
-	you first started on.
-	
- */
-static void screenform_hint(SCREENFORM *screenform, char *hint)
-{
-int i;
-int delta;
-
-		if ( cf_edit_mode == CF_MODE_FORM &&
-			 UP && *UP)
-		{
-			delta = (screenform->height - screenform->currenty) - 1;
-		/* Go to hint line */
-			for( i=0; i < delta; i++)
-			{
-				putc('\n', stderr);
-			}
-
-		/* Output hint on bottom line  - limit to screen width */
-			i = strlen(hint) >
-					screenform->width ?
-				screenform->width :
-				strlen(hint);
-			fwrite(hint, 
-				1, (unsigned int)i, stderr);
-		/* Clear to end of line */
-			for ( i = 
-				strlen(hint); 
-				i <screenform->width; i++)
-				putc(' ', stderr);
-
-		/* Go back to field */
-			for( i=0; i < delta; i++)
-				tputs(UP, 1, local_output_char);
-		}
-		else
-		{
-		/* If not UP suppported then just print the help text  
-				- do not care if it goes over width of screen */
-			fputs(hint, stderr);
-			putc('\n', stderr);
-		}
-	/* Return to first column */
-	/* Note that editscreenfield will redraw label */
-		putc('\r', stderr);
-}
-
-/*
-	Draw the hint text for currently displayed screen field
- */
-static void screenform_displayhinttext(SCREENFORM *screenform)
-{
-
-	if ( screenform->currentscreenfield->fieldspec->hinttext)
-	{
-		screenform_hint(screenform, 
-			screenform->currentscreenfield->fieldspec->hinttext);
-	}
-
-}
-/*
-	Initial drawing of complete screen form. Cursor is moved to first field. 
- */
-static void screenform_draw(SCREENFORM *screenform)
-{
-SCREENFIELD *screenfield;
-
-char *buff;
-char *string;
-int len;
-char *cp;
-int i;
-int y;
-char *displaylevel;
-
-
-
-/* Display top line */
-	buff = xmalloc((unsigned int)(screenform->width + 1));
-	memset(buff, '-', (unsigned int)(screenform->width));
-	buff[screenform->width] = '\0';
-	len = strlen(screenform->label);
-	cp = buff + ( (screenform->width/2) - (len/2) );
-	if ( cp < buff)
-	{
-		cp = buff;
-		len = screenform->width;
-	}
-	memcpy(cp, screenform->label, (unsigned int)len);
-
-	/* Output string */
-	fputs(buff, stderr);
-	rl_crlf();
-
-	
-/* Display each field */
-
-	y= 0;
-	for(screenfield= screenform->screenfields, i=0; i<screenform->fieldcount ; screenfield++, i++)
-	{
-		if ( screenfield->fieldspec->displaylevel
-					<= screenform->displaylevel)
-		{
-			/* Go to correct line */
-			while(y < screenfield->y)
-			{
-				rl_crlf();
-				y++;
-			}
-			/* Display label */
-			fputs(screenfield->label, stderr);
-
-			/* Display value */
-			if ( screenfield->displayvalue)
-			{
-				len = strlen(screenfield->displayvalue) ;
-				if ( (len + screenform->maxlabelwidth + 4) >
-					screenform->width)
-				{
-					len = screenform->width - 
-						screenform->maxlabelwidth - 5;
-					fwrite(screenfield->displayvalue, 
-						1, (unsigned int)len, stderr);
-					putc('>', stderr);
-				}
-				else
-				{
-					fwrite(screenfield->displayvalue, 
-						1, (unsigned int)len, stderr);
-				}
-			}
-
-			/* Go to next line */
-			rl_crlf();
-			y++;
-
-			/* If field is a LAST and not last field */
-			if ( (screenfield->fieldspec->fieldtype == FIELDTYPE_LAST
-					|| screenfield->fieldspec->fieldtype == FIELDTYPE_REST)
-				&& i < (screenform->fieldcount-1) )
-			{
-				memset(buff, ' ', (unsigned int)(screenform->width));
-				memset(buff, '+', (unsigned int)(screenform->maxlabelwidth));
-				buff[screenform->width] = '\0';
-				string = "flags";
-				len = strlen(string);
-				cp = buff + ( (screenform->maxlabelwidth/2) - (len/2) );
-				if ( cp < buff)
-				{
-					cp = buff;
-				}
-				memcpy(cp, string, (unsigned int)len);
-
-				/* Output string */
-				fputs(buff, stderr);
-				rl_crlf();
-				y++;
-			}
-		}
-	}
-
-/* add a line for the hint text */
-	memset(buff, '-', (unsigned int)(screenform->width));
-	if ( screenform->displaylevel == CF_DISPLAYLEVEL_SIMPLE)
-	{
-		displaylevel = "simple";
-	}
-	else if ( screenform->displaylevel == CF_DISPLAYLEVEL_GENERAL)
-	{
-		displaylevel = "general";
-	}
-	else if ( screenform->displaylevel == CF_DISPLAYLEVEL_ADVANCED)
-	{
-		displaylevel = "advanced";
-	}
-	else
-	{
-		displaylevel = "undefined";
-	}
-	len = strlen(displaylevel);
-	if (len > screenform->width)
-		len = screenform->width/2;
-
-	memcpy(buff + (screenform->width - len), displaylevel, (unsigned int)len);
-	fputs(buff, stderr);
-	rl_crlf();
-	y++;
-	rl_crlf();
-	y++;
-
-	/* Position to first field */
-	screenform->currentx = 0;
-	screenform->currenty = screenform->height;
-
-	free(buff);
-}
-
-/*
-	Layout the fields of the form for the current screen width
- */
-static void screenform_layout(SCREENFORM *screenform)
-{
-FORMFIELDSPEC **fieldlist;
-SCREENFIELD *screenfield;
-FIELDSPEC *field;
-int labelwidth;
-int maxlabelwidth;
-int y;
-char *ap;
-char *bp;
-
-int rows;
-int cols;
-
-
-
-/* Get size of screen */
-
-rl_get_screen_size(&rows, &cols);
-
-/* Layout form */
-
-/* 1. Determine label width */
-	maxlabelwidth = 0;
-	for(fieldlist=screenform->formspec->screenfieldlist, screenfield= screenform->screenfields; *fieldlist; fieldlist++, screenfield++)
-	{
-		field = (*fieldlist)->fieldspec;
-		/* Cross link screenfield and fieldspec */
-		field->screenfield = screenfield;
-		screenfield->fieldspec = field;
-		/* Check display level */
-		if ( field->displaylevel <= screenform->displaylevel)
-		{
-			labelwidth = strlen(field->label);
-			if ( labelwidth > maxlabelwidth)
-				maxlabelwidth = labelwidth;
-		}
-	}
-	/* hardcoded esthetic  
-		IF label width greater than a third of screen width 	
-				set label width to 20 */
-	if ( maxlabelwidth > (cols / 3) )
-		if ( maxlabelwidth > 20)
-			maxlabelwidth = 20;
-
-	screenform->maxlabelwidth = maxlabelwidth;
-/* 2. Layout each field  - right align field labels */
-
-	y= 0;
-	for(fieldlist=screenform->formspec->screenfieldlist, screenfield= screenform->screenfields; *fieldlist; fieldlist++, screenfield++)
-	{
-		field = (*fieldlist)->fieldspec;
-		if ( field->displaylevel <= screenform->displaylevel)
-		{
-			if ( field->displaylevel <= screenform->displaylevel)
-				{
-				if ( screenfield->label )
-					free(screenfield->label);
-				screenfield->label= xmalloc((unsigned int)(maxlabelwidth+2));
-				memset(screenfield->label, ' ', (unsigned int)maxlabelwidth);
-				labelwidth= strlen(field->label);
-				for( ap= field->label, 
-					bp= screenfield->label+(maxlabelwidth-labelwidth);
-					*ap;
-					bp++, ap++
-					)
-					*bp = *ap;
-				
-				/* Add delimiter */
-				*bp++ = ':';
-				*bp++ = ' ';
-				*bp++ = '\0';
-				screenfield->x = 0;
-				screenfield->y = y;
-				screenfield->inputy = y++;
-
-				/* last field level space for separator */
-				if ( field->fieldtype == FIELDTYPE_LAST ||
-						field->fieldtype == FIELDTYPE_REST )
-					y++;
-	
-				screenfield->inputx = maxlabelwidth + 1;
-				screenfield->height = 1;
-				/* XXXX defaulting to screen width */
-				screenfield->width  = cols - maxlabelwidth - 1;
-				/* Note: defaults set by screenform_polutatefrompartialcommand */
-			}
-		}
-	}
-	/*  Add line for hints */
-	screenform->height = y+2;
-	screenform->width = cols;
-}
-/*
-   Instansiate a screen form, laying out the fields
- */
-static SCREENFORM * screenform_init(FORMSPEC *formspec, char *label)
-{
-	SCREENFORM *screenform;
-
-
-	/* Create SCREENFORM and SCREENFIELDs */
-	screenform =  xmalloc(sizeof *screenform);
-	memset(screenform, 0, sizeof(SCREENFORM) );
-
-
-	/* Allocate screen fields */
-	screenform->screenfields = (SCREENFIELD *)xmalloc( (unsigned int)(formspec->fieldcount * sizeof(SCREENFIELD) ) );
-	memset(screenform->screenfields, 0, (unsigned int)(formspec->fieldcount * sizeof(SCREENFIELD) ));
-
-	/* Initialising housekeeping */
-	screenform->label = savestring(label);
-	screenform->fieldcount = formspec->fieldcount;
-	screenform->formspec = formspec;
-	screenform->displaylevel = CF_DISPLAYLEVEL_GENERAL;
-
-	return screenform;
-}

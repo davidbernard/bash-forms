@@ -1,0 +1,26 @@
+#
+#
+#	A form definition for the "echo" command
+#
+fieldspec +fieldtype rest \
+	+label Text \
+	+hinttext "Text to be displayed" \
+	+displaylevel simple \
+	echo.text
+
+fieldspec +fieldtype flag \
+	+label "Trailing New-line" \
+	+hinttext "Output new-line" \
+	+values "" "-n" \
+	+displayvalues "Output" "Supress" \
+	+displaylevel simple \
+	echo.newline
+
+formspec +screenfieldlist \
+			echo.newline echo.text \
+		+generationfieldlist \
+			echo.newline echo.text \
+			+command echo \
+			+formname echo
+
+

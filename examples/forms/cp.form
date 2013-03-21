@@ -1,0 +1,73 @@
+#
+#
+#	A form definiation for the "chmod" command
+#
+fieldspec +fieldtype uptolast \
+	+displaylevels simple general advanced \
+	+label "Files/Directories" \
+	+hinttext "Files/directories to copy" \
+	+helptext \
+"The files/directories to copy to the destination" \
+	cp.files
+
+fieldspec +fieldtype last \
+	+displaylevels simple general advanced \
+	+label "Destination" \
+	+hinttext "The new file or destination directory" \
+	cp.destination
+
+fieldspec +fieldtype flag \
+		+displaylevels advanced \
+		+label "Follow symbolic links" \
+		+values "" "-H" "-L" "-P" \
+		+displayvalues "" "On the command line" "Always" "Never" \
+		+hinttext "When recursing whether to follow symbolic links" \
+		cp.symboliclinks
+
+fieldspec +fieldtype flag \
+		+displaylevels general advanced \
+		+label "Recursive" \
+		+values "" "-R" \
+		+displayvalues "" \
+				"Recursive"\
+		+hinttext "Copy all directories and their contents - hard links not preserved " \
+		cp.recursively
+
+fieldspec +fieldtype flag \
+		+displaylevels advanced \
+		+label "User/Id & Times" \
+		+values "" "-p"  \
+		+displayvalues "New" \
+				"Preserve"\
+		+hinttext "Perserve mondification times and/or user id (superuser only)" \
+		cp.preserve
+
+fieldspec +fieldtype flag \
+		+displaylevels advanced \
+		+label "Target Exists" \
+		+values "" "-f" "-n" \
+		+displayvalues "Overwrite" "Replace" "Don't Copy"  \
+		+hinttext "If the file exists: Reuse existing file or Create new file" \
+		cp.reuse
+
+fieldspec +fieldtype flag \
+		+displaylevels general advanced \
+		+label "Diagnostic" \
+		+values "" "-v" "-i" \
+		+displayvalues "Normal" \
+				"Verbose"\
+				"Prompt"\
+		+hinttext "Display level for diagnostic messages" \
+		cp.diagnostic
+
+formspec +screenfieldlist \
+			cp.files cp.destination \
+			cp.reuse cp.preserve cp.recursively cp.diagnostic cp.symboliclinks \
+		+generationfieldlist \
+			cp.reuse cp.preserve cp.recursively cp.diagnostic cp.symboliclinks \
+			cp.files cp.destination \
+		+command cp \
+    +displaylevels simple general advanced \
+		+formname cp
+
+

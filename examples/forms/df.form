@@ -1,0 +1,56 @@
+#
+#
+#	A form definiation for the "df" command
+#
+fieldspec +fieldtype rest +label "Files/File Systems" \
+	+hinttext "Files/File systems to identify the disk usage to display" \
+	+displaylevel simple \
+	df.files
+
+fieldspec +fieldtype flag \
+	+label "Block Size" \
+	+values "" "-b" "-k" "-m" "-g" \
+	+displayvalues "Default" "512 bytes" "1024 bytes" "1 M-byte" "1 G-byte" \
+	+hinttext "Block size used to calculate values" \
+	+displaylevel simple \
+	df.blocksize
+
+fieldspec +fieldtype flag \
+		+label "Show" \
+		+values "" "-l" "-a"  \
+		+displayvalues "All" "Only local" "All + hidden"  \
+		+hinttext "Display file systems - some are hidden using the MNT_IGNORE flag" \
+		+displaylevel general \
+		df.show
+
+fieldspec +fieldtype flagwithvalue \
+		+label "Show by type" \
+		+flag "-t" \
+		+hinttext "Filter by file system type eg dosfs ufs nfs hfs"  \
+		+displaylevel advanced \
+		df.type
+
+fieldspec +fieldtype flag \
+		+label "Style" \
+		+values "" "-H" "-h"  \
+		+displayvalues "None" "Simplified (base 10)" "Simplified (base 2)" \
+		+hinttext "Display simplified counts by using units" \
+		+displaylevel general \
+		df.style
+
+fieldspec +fieldtype flag \
+		+label "Inodes" \
+		+values "" "-i"   \
+		+displayvalues "" "Show" \
+		+hinttext "Display inode statistics" \
+		+displaylevel advanced \
+		df.inode
+
+formspec +screenfieldlist \
+			df.files df.blocksize df.show df.type df.style df.inode \
+		+generationfieldlist \
+			df.blocksize df.show  df.style df.inode df.type df.files\
+			+command df \
+			+formname df
+
+

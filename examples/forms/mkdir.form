@@ -1,0 +1,80 @@
+#
+#
+#	A form definiation for the "mkdir" command
+#
+fieldspec +fieldtype rest \
+	+label "Directory Name" \
+	+hinttext "The name of hte new directory" \
+	+displaylevel simple \
+	mkdir.directory
+
+fieldspec +fieldtype flag \
+		+label "Intermediate Directories" \
+		+values "" "-p" \
+		+displayvalues "Must Exist" "Create if required"   \
+		+hinttext "If an intermediate directory does not exist whether to create" \
+		+displaylevel advanced \
+		mkdir.create
+
+fieldspec +fieldtype flag \
+		+label "Diagnostic" \
+		+values "" "-v"  \
+		+displayvalues "Terse" \
+				"Verbose"\
+		+hinttext "Display level for diagnostic messages" \
+		+displaylevel general \
+		mkdir.diagnostic
+
+fieldspec +fieldtype flagwithvalue \
+	+label "Owner" \
+	+flag "-m" \
+	+hinttext "File access modes for the owner of the directory" \
+	+helptext \
+"r=read w=write x=execute u=user g=group o=other" \
+	+values "u=rwx" "u=rx" "u=rw" "u=r" "u=w"  "u=wx" "u=x" "u=" \
+	+displayvalues "Read,Write and Execute" "Read and Execute" \
+		"Read Only" "Read and Write" "Write Only" \
+		"Write Only and Execute" \
+		"Execute Only" "No Access" \
+	+separator "," \
+	+displaylevel simple \
+	mkdir.user
+
+fieldspec +fieldtype flagwithvalue \
+	+label "Group" \
+	+hinttext "File access modes for members of the group of the directory" \
+	+helptext \
+"r=read w=write x=execute u=user g=group o=other" \
+	+values "g=rwx" "g=rx" "g=rw" "g=r" "g=w"  "g=wx" "g=x" "g=" \
+	+displayvalues "Read,Write and Execute" "Read and Execute" \
+		"Read Only" "Read and Write" "Write Only" \
+		"Write Only and Execute" \
+		"Execute Only" "No Access" \
+	+separator "," \
+	+displaylevel simple \
+	mkdir.group
+
+fieldspec +fieldtype flagwithvalue \
+	+label "Others" \
+	+hinttext "File access modes other users apart from the owner or a group member"  \
+	+helptext \
+"r=read w=write x=execute u=user g=group o=other" \
+	+values "o=rx" "o=r" "o=rw" "o=w" "o=rwx" "o=wx" "o=x" "o=" \
+	+displayvalues "Read Execute" "Read Only" "Read and Write" "Write Only" \
+		"Read,Write and Execute" "Write Only and Execute" \
+		"Execute Only" "No Access" \
+	+separator "," \
+	+displaylevel simple \
+	mkdir.other
+
+formspec +screenfieldlist \
+			mkdir.directory \
+			mkdir.diagnostic mkdir.create \
+			mkdir.user mkdir.group mkdir.other \
+		+generationfieldlist \
+			mkdir.diagnostic mkdir.create \
+			mkdir.user mkdir.group mkdir.other \
+			mkdir.directory \
+		+ mkdir
+
+

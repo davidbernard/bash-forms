@@ -1,0 +1,41 @@
+#
+#
+#	A form definiation for the "ed" command
+#
+fieldspec +fieldtype rest +label File \
+	+hinttext "File to edit" \
+	+displaylevel simple \
+	ed.file
+
+fieldspec +fieldtype flag +label "Diagnostics" \
+	+values "" "-s" \
+	+displayvalues "Normal" "None" \
+	+hinttext "Diagnostic level - turn off for scripting" \
+	+displaylevel simple \
+	ed.diagnostics
+
+fieldspec +fieldtype flag \
+		+label "Encyption" \
+		+values "" "-x" \
+		+displayvalues "None" "Prompt for key" \
+		+hinttext "Encryption key for reads and writes" \
+		+displaylevel advanced \
+		ed.encryption
+
+fieldspec +fieldtype  flagwithvalue\
+		+label "Prompt" \
+		+flag "-p" \
+		+hinttext "Command prompt to display" \
+		+displaylevel advanced \
+		ed.prompt
+
+formspec +screenfieldlist \
+			ed.file ed.diagnostics \
+			ed.encryption ed.prompt \
+		+generationfieldlist \
+			ed.encryption ed.prompt \
+			ed.file ed.diagnostics \
+			+command ed \
+			+formname ed
+
+

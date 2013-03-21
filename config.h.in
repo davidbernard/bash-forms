@@ -144,6 +144,10 @@
    and the complete builtin. */
 #undef PROGRAMMABLE_COMPLETION
 
+/* Define COMMAND_FORMS for the command form features
+   and the fieldspec, formspec and form builtins. */
+#undef COMMAND_FORMS
+
 /* Define NO_MULTIBYTE_SUPPORT to not compile in support for multibyte
    characters, even if the OS supports them. */
 #undef NO_MULTIBYTE_SUPPORT

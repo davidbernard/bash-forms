@@ -139,7 +139,8 @@ DEFSRC =  $(srcdir)/alias.def $(srcdir)/bind.def $(srcdir)/break.def \
 	  $(srcdir)/times.def $(srcdir)/trap.def $(srcdir)/type.def \
 	  $(srcdir)/ulimit.def $(srcdir)/umask.def $(srcdir)/wait.def \
 	  $(srcdir)/reserved.def $(srcdir)/pushd.def $(srcdir)/shopt.def \
-	  $(srcdir)/printf.def $(srcdir)/complete.def $(srcdir)/mapfile.def
+	  $(srcdir)/printf.def $(srcdir)/complete.def $(srcdir)/commandforms.def \
+    $(srcdir)/mapfile.def
 
 STATIC_SOURCE = common.c evalstring.c evalfile.c getopt.c bashgetopt.c \
 		getopt.h 
@@ -151,7 +152,8 @@ OFILES = builtins.o \
 	jobs.o kill.o let.o mapfile.o \
 	pushd.o read.o return.o set.o setattr.o shift.o source.o \
 	suspend.o test.o times.o trap.o type.o ulimit.o umask.o \
-	wait.o getopts.o shopt.o printf.o getopt.o bashgetopt.o complete.o
+	wait.o getopts.o shopt.o printf.o getopt.o bashgetopt.o complete.o \
+  commandforms.o
 
 CREATED_FILES = builtext.h builtins.c psize.aux pipesize.h
 
@@ -291,6 +293,7 @@ wait.o: wait.def
 getopts.o: getopts.def
 reserved.o: reserved.def
 complete.o: complete.def
+commandforms.o: commandforms.def
 
 # C files
 bashgetopt.o: ../config.h $(topdir)/bashansi.h $(BASHINCDIR)/ansi_stdlib.h
@@ -612,6 +615,13 @@ complete.o: ${topdir}/bashtypes.h ${topdir}/bashansi.h ${BASHINCDIR}/ansi_stdlib
 complete.o: ${topdir}/builtins.h
 complete.o: ${topdir}/pcomplete.h
 complete.o: ${srcdir}/common.h ${srcdir}/bashgetopt.h
+commandforms.o: ../config.h ../pathnames.h
+commandforms.o: ${topdir}/shell.h $(topdir)/syntax.h ${topdir}/bashjmp.h ${BASHINCDIR}/posixjmp.h ${topdir}/sig.h  
+commandforms.o: ${topdir}/unwind_prot.h ${topdir}/variables.h
+commandforms.o: ${topdir}/bashtypes.h ${topdir}/bashansi.h ${BASHINCDIR}/ansi_stdlib.h
+commandforms.o: ${topdir}/builtins.h
+commandforms.o: ${topdir}/pcomplete.h
+commandforms.o: ${srcdir}/common.h ${srcdir}/bashgetopt.h
 mapfile.o: $(topdir)/command.h ../config.h $(BASHINCDIR)/memalloc.h
 mapfile.o: $(topdir)/error.h $(topdir)/general.h $(topdir)/xmalloc.h
 mapfile.o: $(topdir)/quit.h $(topdir)/dispose_cmd.h $(topdir)/make_cmd.h
@@ -628,6 +638,7 @@ caller.o: ${topdir}/bashintl.h ${LIBINTL_H} $(BASHINCDIR)/gettext.h
 cd.o: ${topdir}/bashintl.h ${LIBINTL_H} $(BASHINCDIR)/gettext.h
 common.c: ${topdir}/bashintl.h ${LIBINTL_H} $(BASHINCDIR)/gettext.h
 complete.o: ${topdir}/bashintl.h ${LIBINTL_H} $(BASHINCDIR)/gettext.h
+commandforms.o: ${topdir}/bashintl.h ${LIBINTL_H} $(BASHINCDIR)/gettext.h
 declare.o: ${topdir}/bashintl.h ${LIBINTL_H} $(BASHINCDIR)/gettext.h
 enable.o: ${topdir}/bashintl.h ${LIBINTL_H} $(BASHINCDIR)/gettext.h
 evalfile.c: ${topdir}/bashintl.h ${LIBINTL_H} $(BASHINCDIR)/gettext.h

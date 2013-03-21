@@ -421,7 +421,7 @@ CSOURCES = shell.c eval.c parse.y general.c make_cmd.c print_cmd.c y.tab.c \
 	   input.c bashhist.c array.c arrayfunc.c assoc.c sig.c pathexp.c \
 	   unwind_prot.c siglist.c bashline.c bracecomp.c error.c \
 	   list.c stringlib.c locale.c findcmd.c redir.c \
-	   pcomplete.c pcomplib.c syntax.c xmalloc.c
+	   pcomplete.c pcomplib.c commandforms.c commandformlib.c syntax.c xmalloc.c
 
 HSOURCES = shell.h flags.h trap.h hashcmd.h hashlib.h jobs.h builtins.h \
 	   general.h variables.h config.h $(ALLOC_HEADERS) alias.h \
@@ -429,7 +429,8 @@ HSOURCES = shell.h flags.h trap.h hashcmd.h hashlib.h jobs.h builtins.h \
 	   command.h input.h error.h bashansi.h dispose_cmd.h make_cmd.h \
 	   subst.h externs.h siglist.h bashhist.h bashline.h bashtypes.h \
 	   array.h arrayfunc.h sig.h mailcheck.h bashintl.h bashjmp.h \
-	   execute_cmd.h parser.h pathexp.h pathnames.h pcomplete.h assoc.h \
+	   execute_cmd.h parser.h pathexp.h pathnames.h pcomplete.h commandforms.h \
+     assoc.h \
 	   $(BASHINCFILES)
 
 SOURCES	 = $(CSOURCES) $(HSOURCES) $(BUILTIN_DEFS)
@@ -449,7 +450,7 @@ OBJECTS	 = shell.o eval.o y.tab.o general.o make_cmd.o print_cmd.o $(GLOBO) \
 	   trap.o input.o unwind_prot.o pathexp.o sig.o test.o version.o \
 	   alias.o array.o arrayfunc.o assoc.o braces.o bracecomp.o bashhist.o \
 	   bashline.o $(SIGLIST_O) list.o stringlib.o locale.o findcmd.o redir.o \
-	   pcomplete.o pcomplib.o syntax.o xmalloc.o $(SIGNAMES_O)
+	   pcomplete.o pcomplib.o commandforms.o commandformlib.o syntax.o xmalloc.o $(SIGNAMES_O)
 
 # Where the source code of the shell builtins resides.
 BUILTIN_SRCDIR=$(srcdir)/builtins
@@ -460,7 +461,8 @@ DEBUGGER_DIR = $(dot)/debugger
 
 BUILTIN_DEFS = $(DEFSRC)/alias.def $(DEFSRC)/bind.def $(DEFSRC)/break.def \
 	       $(DEFSRC)/builtin.def $(DEFSRC)/cd.def $(DEFSRC)/colon.def \
-	       $(DEFSRC)/command.def ${DEFSRC}/complete.def \
+	       $(DEFSRC)/command.def \
+	       $(DEFSRC)/commandforms.def ${DEFSRC}/complete.def \
 	       $(DEFSRC)/caller.def $(DEFSRC)/declare.def \
 	       $(DEFSRC)/echo.def $(DEFSRC)/enable.def $(DEFSRC)/eval.def \
 	       $(DEFSRC)/exec.def $(DEFSRC)/exit.def $(DEFSRC)/fc.def \
@@ -492,7 +494,8 @@ BUILTIN_OBJS = $(DEFDIR)/alias.o $(DEFDIR)/bind.o $(DEFDIR)/break.o \
 	       $(DEFDIR)/source.o $(DEFDIR)/suspend.o $(DEFDIR)/test.o \
 	       $(DEFDIR)/times.o $(DEFDIR)/trap.o $(DEFDIR)/type.o \
 	       $(DEFDIR)/ulimit.o $(DEFDIR)/umask.o $(DEFDIR)/wait.o \
-	       $(DEFDIR)/getopts.o $(DEFDIR)/mapfile.o $(BUILTIN_C_OBJ)
+	       $(DEFDIR)/getopts.o $(DEFDIR)/mapfile.o $(BUILTIN_C_OBJ) \
+         $(DEFDIR)/commandforms.o
 GETOPT_SOURCE   = $(DEFSRC)/getopt.c $(DEFSRC)/getopt.h
 PSIZE_SOURCE	= $(DEFSRC)/psize.sh $(DEFSRC)/psize.c
 
@@ -1054,7 +1057,7 @@ variables.o: quit.h ${BASHINCDIR}/maxpath.h unwind_prot.h dispose_cmd.h
 variables.o: make_cmd.h subst.h sig.h pathnames.h externs.h 
 variables.o: flags.h execute_cmd.h mailcheck.h input.h $(DEFSRC)/common.h
 variables.o: findcmd.h bashhist.h hashcmd.h pathexp.h
-variables.o: pcomplete.h  ${BASHINCDIR}/chartypes.h
+variables.o: pcomplete.h  commandforms.h ${BASHINCDIR}/chartypes.h
 variables.o: ${BASHINCDIR}/posixtime.h assoc.h
 version.o:  conftypes.h patchlevel.h version.h
 xmalloc.o: config.h bashtypes.h ${BASHINCDIR}/ansi_stdlib.h error.h
@@ -1430,6 +1433,13 @@ builtins/complete.o: bashtypes.h bashansi.h ${BASHINCDIR}/ansi_stdlib.h
 builtins/complete.o: builtins.h pathnames.h
 builtins/complete.o: pcomplete.h
 builtins/complete.o: ${DEFSRC}/common.h ${DEFSRC}/bashgetopt.h
+builtins/commandforms.o: config.h shell.h syntax.h bashjmp.h ${BASHINCDIR}/posixjmp.h sig.h
+builtins/commandforms.o: unwind_prot.h variables.h arrayfunc.h conftypes.h
+builtins/commandforms.o: bashtypes.h bashansi.h ${BASHINCDIR}/ansi_stdlib.h
+builtins/commandforms.o: builtins.h pathnames.h
+builtins/commandforms.o: pcomplete.h
+builtins/commandforms.o: ${DEFSRC}/common.h ${DEFSRC}/bashgetopt.h
+
 builtins/mapfile.o: command.h config.h ${BASHINCDIR}/memalloc.h error.h general.h xmalloc.h ${BASHINCDIR}/maxpath.h
 builtins/mapfile.o: quit.h dispose_cmd.h make_cmd.h subst.h externs.h ${BASHINCDIR}/stdc.h
 builtins/mapfile.o: shell.h syntax.h bashjmp.h ${BASHINCDIR}/posixjmp.h sig.h unwind_prot.h variables.h arrayfunc.h conftypes.h 
@@ -1441,6 +1451,7 @@ builtins/break.o: ${topdir}/bashintl.h ${LIBINTL_H} $(BASHINCDIR)/gettext.h
 builtins/caller.o: ${topdir}/bashintl.h ${LIBINTL_H} $(BASHINCDIR)/gettext.h
 builtins/cd.o: ${topdir}/bashintl.h ${LIBINTL_H} $(BASHINCDIR)/gettext.h
 builtins/common.c: ${topdir}/bashintl.h ${LIBINTL_H} $(BASHINCDIR)/gettext.h
+builtins/commandforms.o: ${topdir}/bashintl.h ${LIBINTL_H} $(BASHINCDIR)/gettext.h
 builtins/complete.o: ${topdir}/bashintl.h ${LIBINTL_H} $(BASHINCDIR)/gettext.h
 builtins/declare.o: ${topdir}/bashintl.h ${LIBINTL_H} $(BASHINCDIR)/gettext.h
 builtins/enable.o: ${topdir}/bashintl.h ${LIBINTL_H} $(BASHINCDIR)/gettext.h
@@ -1492,6 +1503,7 @@ builtins/caller.o: $(DEFSRC)/caller.def
 builtins/cd.o: $(DEFSRC)/cd.def
 builtins/colon.o: $(DEFSRC)/colon.def
 builtins/command.o: $(DEFSRC)/command.def
+builtins/commandforms.o: $(DEFSRC)/commandforms.def
 builtins/complete.o: $(DEFSRC)/complete.def
 builtins/declare.o: $(DEFSRC)/declare.def
 builtins/echo.o: $(DEFSRC)/echo.def

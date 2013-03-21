@@ -1,0 +1,58 @@
+#
+#
+#	A form definiation for the "cat" command
+#
+fieldspec +fieldtype positional +label Files \
+	+hinttext "Concatonate the contents of these files" \
+	+helptext \
+"The contents of the named files is concatonated to standard output" \
+	+displaylevels simple \
+	cat.files
+
+fieldspec +fieldtype flagwithvalue +label "Output File" \
+	+flag ">" \
+	+hinttext "Output file name - leave blank for standard output" \
+	+helptext \
+"The name of a file to be created with the result of the concatenation." \
+	+displaylevels simple \
+	cat.out
+
+fieldspec +fieldtype flag \
+		+label "Line Numbers" \
+		+values "" "-b" "-n" \
+		+displayvalues "None" "Non blank lines" "All lines" \
+		+hinttext "Number lines on output" \
+		+displaylevels general \
+		cat.linenumbers
+
+fieldspec +fieldtype flag \
+		+label "Translations" \
+		+values "" "-v" "-t" "-e" \
+		+displayvalues "None" \
+				"Non-printing characters to ^X ^? etc"\
+				"Non-printing and tab as ^I" \
+				"Non-printing and mark end of line as $" \
+		+hinttext "Translation of Non-printing characters" \
+		+displaylevels general \
+		cat.translations
+
+fieldspec +fieldtype flag \
+		+label "Squeeze" \
+		+values "" "-s" \
+		+displayvalues "None" \
+				"Adjacent empty lines"\
+		+hinttext "Remove adjacent empty line to make single lines spaced" \
+		+displaylevels advanced \
+		cat.squeeze
+
+formspec +screenfieldlist \
+			cat.files cat.out cat.files cat.out \
+			cat.linenumbers cat.translations cat.squeeze \
+		+generationfieldlist \
+			cat.linenumbers cat.out cat.translations cat.squeeze \
+			cat.files cat.out cat.out \
+      +displaylevels simple general advanced \
+			+command echo \
+			+formname  echo
+
+

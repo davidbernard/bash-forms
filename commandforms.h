@@ -34,11 +34,6 @@ typedef enum {
 		CF_ENTER, 		/* Complete form */
 		CF_ESCAPE 		/* Escape out of form */
 		} CF_NAVIGATION;
-typedef enum { 
-		CF_DISPLAYLEVEL_SIMPLE,  /* Display simple fields */
-		CF_DISPLAYLEVEL_GENERAL,  /* Display most fields */
-		CF_DISPLAYLEVEL_ADVANCED	/* Display all fields */
-		} CF_DISPLAYLEVEL;
 
 typedef enum {
 		CF_MODE_FORM,
@@ -67,6 +62,7 @@ typedef struct screenfield {
 	struct fieldspec *fieldspec;
 	char *value;
 	char *displayvalue;
+	char **displaylevels;
 	char *label;
 	int x;
 	int y;
@@ -93,7 +89,7 @@ typedef struct screenform {
 	int maxlabelwidth;
 	SCREENFIELD *currentscreenfield;
 	CF_NAVIGATION nextnavigation;
-	CF_DISPLAYLEVEL displaylevel;
+	char *displaylevel;
 	} SCREENFORM;
 
 /* Field specification for a type of a field */
@@ -106,7 +102,7 @@ typedef struct fieldspec {
 	char *helptext;
 /* Label to appear on screen */
 	char *label;
-/* If value present then preceed with this flag */
+/* If value present then precede with this flag */
 	char *flag;
 /* Values to use for generation of command  - first value is default
 	if more than one value then select from list of values */
@@ -118,8 +114,8 @@ typedef struct fieldspec {
 	char *compspec;
 /* Optional separator string */
 	char *separator;
-/* Working variable used when a form is displaying a field defined by this definition */
-	CF_DISPLAYLEVEL displaylevel;
+/* Determines the display levels the field is displayed in */
+	char **displaylevels;
 	} FIELDSPEC;
 
 /* Links the name used to add a field  to a formspec */
@@ -132,7 +128,7 @@ typedef struct formfieldspec {
 	struct formfieldspec *crosslink;
 	} FORMFIELDSPEC;
 
-/* Form Speficitation */
+/* Form Specification */
 typedef struct formspec {
 	/* List of fields as they appear on screen */
 	FORMFIELDSPEC **screenfieldlist; 		
@@ -142,6 +138,8 @@ typedef struct formspec {
 	char *command;
 	/* Count of fields */
 	int fieldcount;
+	/* Display levels supported by this form - the first level is the default*/
+	char **displaylevels;
 	} FORMSPEC;
 
 /* Table for definition of pre-defined field types */
@@ -172,10 +170,13 @@ extern int commandforms_enabled;
 
 /* Functions from commandformslib.c */
 extern FIELDSPEC *fieldspec_create __P((void));
+
 extern FORMSPEC *formspec_create __P((void));
+extern void formspec_dispose __P((FORMSPEC *form));
 
 extern void fieldspecs_create __P((void));
 extern void formspecs_create __P((void));
+
 extern void fieldspecs_flush __P((void));
 extern void formspecs_flush __P((void));
 extern void fieldspecs_dispose __P((void));
@@ -186,6 +187,7 @@ extern int formspecs_size __P((void));
 
 extern int fieldspec_insert __P((char *, FIELDSPEC *));
 extern void fieldspec_retain __P(( FIELDSPEC *));
+
 extern int formspec_insert __P((char *, FORMSPEC *));
 extern int fieldspec_remove __P((char *));
 extern int formspec_remove __P((char *));
