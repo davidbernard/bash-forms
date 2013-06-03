@@ -125,14 +125,11 @@ static Keymap cf_keymap;
 static rl_hook_func_t *old_rl_startup_hook = (rl_hook_func_t *)NULL;
 
 
-/*
-	Utility Functions
-*/
+/*	Utility Functions */
 
-/*
-	Return whether a string is in a list of strings 
-*/
-static int string_list_contains(list, string)
+/* Return whether a string is in a list of strings */
+static int 
+string_list_contains(list, string)
 char **list;
 char *string;
 {
@@ -146,9 +143,7 @@ char *string;
 }
 
 
-/*
-	Helper function to pass to tputs
- */
+/* 	Helper function to pass to tputs  */
 static int 
 local_output_char(c)
 	int c;
@@ -157,13 +152,11 @@ local_output_char(c)
 }
 
 
-/*
-	Input processing functions
-*/
+/*	Input processing functions */
 
-/*
- 	Process Right arrow key
- */
+/* Process Right arrow key 
+   If field displays from a value list display the next value wrapping to start
+   Otherwise progress cursor to right. */
 static int 
 cf_right_arrow_key(count, c)
 	int count;
@@ -222,9 +215,27 @@ cf_right_arrow_key(count, c)
 	return rl_forward_char (count, c);    
 }
 
-/*
- 	Process left  arrow key
- */
+/*  Update the screenfield to display value */
+static void
+cf_next_value(screenfield)
+SCREENFIELD *screenfield;
+{
+	if ( screenfield->currentvalueindex > 0	)
+	{
+		screenfield_setwithindex(screenfield, 
+			screenfield->currentvalueindex - 1);
+	}
+	else
+	{
+		screenfield_setwithindex(screenfield, 
+			screenfield->fieldspec->valuescount - 1);
+	}
+}
+
+
+/* Process Left arrow key 
+   If field displays from a value list display the previous value wrapping to end
+   Otherwise progress cursor to left. */
 static int 
 cf_left_arrow_key(count, c)
 	int count;
@@ -281,11 +292,8 @@ cf_left_arrow_key(count, c)
     return rl_backward_char (count, c);
 }
 
-/*
-	Process up arrow key
-	Set navigation to previous field and complete entry of the field.
-	
- */
+/*  Process up arrow key
+    Set navigation to previous field and complete entry of the field. */
 static int 
 cf_up_arrow_key(count, c)
 	int count;
@@ -298,11 +306,8 @@ cf_up_arrow_key(count, c)
     return rl_newline (count, c);
 }
 
-/*
-	Process down arrow key
-	Set navigation to next field and complete entry of the field.
-	
- */
+/*	Process down arrow key
+	Set navigation to next field and complete entry of the field. */
 static int 
 cf_down_arrow_key(count, c)
 	int count;
@@ -315,10 +320,8 @@ cf_down_arrow_key(count, c)
     return rl_newline (count, c);
 }
 
-/*
- 	Process redraw key sequence - Ctrl L
-	Cycle display level and redraw the form
- */
+/* Process redraw key sequence - Ctrl L
+	Cycle display level and redraw the form */
 static int 
 cf_redraw(count, c)
 	int count;
@@ -331,14 +334,12 @@ cf_redraw(count, c)
     return rl_newline (count, c);
 }
 
-/*
-	Function to process a key key press. Called from the 
-	keymap table during readline.
-	The function either inserts the type character or if 
-	the field has a display value list, it navigates between 
-	displayvalue.
- */
-static int cf_insert_or_cycle_screenfield (count, c)
+/* Process key press. 
+    Called from the keymap table during readline.
+    The function either inserts the type character or if 
+    the field has a display value list, it navigates between displayvalue. */
+static int 
+cf_insert_or_cycle_screenfield (count, c)
      int count;
      int c;
 {
@@ -493,7 +494,7 @@ static char *cf_complete_return(text, state)
 }
 
 /* 
-	Called via rl_attempted_completion global valiable
+	Called via rl_attempted_completion global variable
 	Calculates a list of possible matches and the lowest common denominator
 	and sets up if required the display of options on the hint line.
  */
@@ -1011,21 +1012,21 @@ WORD_LIST *l;
 		/* If next fieldspec is a flag then try to match
 		   the argument to any flags before the next positional argument */
 
-		if ( fieldspec->fieldtype == FIELDTYPE_FLAG
-			|| FIELDTYPE_FLAGWITHVALUE)
+		if ( fieldspec->fieldtype == CF_FIELD_TYPE_FLAG
+			|| CF_FIELD_TYPE_FLAGWITHVALUE)
 		{
 			/* Check for matching flag arguments prior to next positional */
 			found = 0;
 
 			for (fl = fieldlist; *fl && 
-				( (*fl)->fieldspec->fieldtype == FIELDTYPE_FLAG ||
-				 (*fl)->fieldspec->fieldtype == FIELDTYPE_FLAGWITHVALUE); fl++)
+				( (*fl)->fieldspec->fieldtype == CF_FIELD_TYPE_FLAG ||
+				 (*fl)->fieldspec->fieldtype == CF_FIELD_TYPE_FLAGWITHVALUE); fl++)
 			{
 				fieldspec = (*fl)->fieldspec;
 				screenfield = (*fieldlist)->screenfield;
 
 				/* Test for matching flag value */
-				if ( fieldspec->fieldtype == FIELDTYPE_FLAGWITHVALUE
+				if ( fieldspec->fieldtype == CF_FIELD_TYPE_FLAGWITHVALUE
 						&&  fieldspec->flag)
 				{
 					int flaglen = strlen(fieldspec->flag);
@@ -1099,7 +1100,7 @@ WORD_LIST *l;
 		}
 
 		/* If a position argument is next then use the value */
-		if ( fieldspec->fieldtype == FIELDTYPE_UPTOLAST)
+		if ( fieldspec->fieldtype == CF_FIELD_TYPE_UPTOLAST)
 		{
 			/* If not last argument append to "UPTOLAST" field */
 			if ( l->next != NULL )
@@ -1111,7 +1112,7 @@ WORD_LIST *l;
 			{
 			/* Last argument so If next field is last field apply to that field */
 				if ( *(fieldlist+1) &&
-					(*(fieldlist+1))->fieldspec->fieldtype == FIELDTYPE_LAST)
+					(*(fieldlist+1))->fieldspec->fieldtype == CF_FIELD_TYPE_LAST)
 				{
 					screenfield_setwithvalue(
 						(*(fieldlist+1))->screenfield,l->word->word);
@@ -1124,15 +1125,15 @@ WORD_LIST *l;
 			fieldlist++;
 			}
 		}
-		else if ( fieldspec->fieldtype == FIELDTYPE_POSITIONAL
-			|| fieldspec->fieldtype == FIELDTYPE_LAST)
+		else if ( fieldspec->fieldtype == CF_FIELD_TYPE_POSITIONAL
+			|| fieldspec->fieldtype == CF_FIELD_TYPE_LAST)
 		{
 			/* Set value */
 			screenfield_setwithvalue(screenfield, l->word->word);
 			fieldlist++;
 		}
 
-		else if ( fieldspec->fieldtype == FIELDTYPE_REST)
+		else if ( fieldspec->fieldtype == CF_FIELD_TYPE_REST)
 		{
 			/* Append all the rest to the field */
 			screenfield_appendtovalue(screenfield, l->word->word);
@@ -1464,8 +1465,8 @@ int y;
 			y++;
 
 			/* If field is a LAST and not last field */
-			if ( (screenfield->fieldspec->fieldtype == FIELDTYPE_LAST
-					|| screenfield->fieldspec->fieldtype == FIELDTYPE_REST)
+			if ( (screenfield->fieldspec->fieldtype == CF_FIELD_TYPE_LAST
+					|| screenfield->fieldspec->fieldtype == CF_FIELD_TYPE_REST)
 				&& i < (screenform->fieldcount-1) )
 			{
 				memset(buff, ' ', (unsigned int)(screenform->width));
@@ -1595,8 +1596,8 @@ rl_get_screen_size(&rows, &cols);
 				screenfield->inputy = y++;
 
 				/* last field level space for separator */
-				if (( field->fieldtype == FIELDTYPE_LAST 
-						|| field->fieldtype == FIELDTYPE_REST )
+				if (( field->fieldtype == CF_FIELD_TYPE_LAST 
+						|| field->fieldtype == CF_FIELD_TYPE_REST )
 						&& *(fieldlist+1) )
 					y++;
 	
@@ -1702,17 +1703,17 @@ FIELDSPEC *cs;
   printf ("fieldspec ");
 
   string = NULL;
-	if ( cs->fieldtype == FIELDTYPE_FLAG)
+	if ( cs->fieldtype == CF_FIELD_TYPE_FLAG)
 		string = "flag";
-	else if ( cs->fieldtype == FIELDTYPE_FLAGWITHVALUE)
+	else if ( cs->fieldtype == CF_FIELD_TYPE_FLAGWITHVALUE)
 		string = "flagwithvalue";
-	else if ( cs->fieldtype == FIELDTYPE_POSITIONAL)
+	else if ( cs->fieldtype == CF_FIELD_TYPE_POSITIONAL)
 		string = "positional";
-	else if ( cs->fieldtype == FIELDTYPE_UPTOLAST)
+	else if ( cs->fieldtype == CF_FIELD_TYPE_UPTOLAST)
 		string = "uptolast";
-	else if ( cs->fieldtype == FIELDTYPE_LAST)
+	else if ( cs->fieldtype == CF_FIELD_TYPE_LAST)
 		string = "last";
-	else if ( cs->fieldtype == FIELDTYPE_REST)
+	else if ( cs->fieldtype == CF_FIELD_TYPE_REST)
 		string = "rest";
   CONDITIONALSQPRINTSTRING(string, "+fieldtype");
   CONDITIONALSQPRINTSTRING(cs->hinttext, "+hinttext")
@@ -2091,17 +2092,17 @@ next:
 	if ( fieldtype && *fieldtype )
 	{
 	  if ( strcmp(fieldtype, "positional") == 0)
-		cs->fieldtype = FIELDTYPE_POSITIONAL;
+		cs->fieldtype = CF_FIELD_TYPE_POSITIONAL;
 	  else if ( strcmp(fieldtype, "flag") == 0)
-		cs->fieldtype = FIELDTYPE_FLAG;
+		cs->fieldtype = CF_FIELD_TYPE_FLAG;
 	  else if ( strcmp(fieldtype, "last") == 0)
-		cs->fieldtype = FIELDTYPE_LAST;
+		cs->fieldtype = CF_FIELD_TYPE_LAST;
 	  else if ( strcmp(fieldtype, "rest") == 0)
-		cs->fieldtype = FIELDTYPE_REST;
+		cs->fieldtype = CF_FIELD_TYPE_REST;
 	  else if ( strcmp(fieldtype, "uptolast") == 0)
-		cs->fieldtype = FIELDTYPE_UPTOLAST;
+		cs->fieldtype = CF_FIELD_TYPE_UPTOLAST;
 	  else if ( strcmp(fieldtype, "flagwithvalue") == 0)
-		cs->fieldtype = FIELDTYPE_FLAGWITHVALUE;
+		cs->fieldtype = CF_FIELD_TYPE_FLAGWITHVALUE;
 	  else
 		{
 		free(cs);
@@ -2110,7 +2111,7 @@ next:
 		}
 	}
 	else
-		cs->fieldtype = FIELDTYPE_POSITIONAL;
+		cs->fieldtype = CF_FIELD_TYPE_POSITIONAL;
 
   cs->hinttext = STRDUP (hinttext);
   cs->helptext = STRDUP (helptext);
@@ -2780,9 +2781,9 @@ form_builtin (list)
 					if ( screenform->currentscreenfield <
 						((screenform->fieldcount-1) + screenform->screenfields)
 						&& (screenform->currentscreenfield
-								->fieldspec->fieldtype != FIELDTYPE_LAST &&
+								->fieldspec->fieldtype != CF_FIELD_TYPE_LAST &&
 							screenform->currentscreenfield
-								->fieldspec->fieldtype != FIELDTYPE_REST ) )
+								->fieldspec->fieldtype != CF_FIELD_TYPE_REST ) )
 						{
 							if ( 0 == screenform_gotonextfield(screenform) )
 								goto complete;

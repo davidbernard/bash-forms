@@ -48,14 +48,15 @@ typedef enum {
 /*
 	Types of field
  */
-typedef enum { 
-	FIELDTYPE_POSITIONAL ,
-	FIELDTYPE_FLAG ,
-	FIELDTYPE_FLAGWITHVALUE ,
-	FIELDTYPE_LAST ,
-	FIELDTYPE_REST ,
-	FIELDTYPE_UPTOLAST 
-	} FIELDTYPE;
+typedef enum {
+	CF_FIELD_TYPE_INVALID,
+	CF_FIELD_TYPE_POSITIONAL ,
+	CF_FIELD_TYPE_FLAG ,
+	CF_FIELD_TYPE_FLAGWITHVALUE ,
+	CF_FIELD_TYPE_LAST ,
+	CF_FIELD_TYPE_REST ,
+	CF_FIELD_TYPE_UPTOLAST
+	} CF_FIELD_TYPE;
 
 /* Field on a screen when a form is displayed */
 typedef struct screenfield {
@@ -96,7 +97,7 @@ typedef struct screenform {
 typedef struct fieldspec {
 	int refcount;
 /* Type of field */
-	FIELDTYPE fieldtype;
+	CF_FIELD_TYPE fieldtype;
 /* Hint and help text */
 	char *hinttext;
 	char *helptext;
@@ -171,38 +172,25 @@ extern int commandforms_enabled;
 /* Functions from commandformslib.c */
 extern FIELDSPEC *fieldspec_create __P((void));
 
-extern FORMSPEC *formspec_create __P((void));
-extern void formspec_dispose __P((FORMSPEC *form));
-
-extern void fieldspecs_create __P((void));
-extern void formspecs_create __P((void));
-
 extern void fieldspecs_flush __P((void));
-extern void formspecs_flush __P((void));
-extern void fieldspecs_dispose __P((void));
-extern void formspecs_dispose __P((void));
-
-extern int fieldspecs_size __P((void));
-extern int formspecs_size __P((void));
-
 extern int fieldspec_insert __P((char *, FIELDSPEC *));
 extern void fieldspec_retain __P(( FIELDSPEC *));
-
-extern int formspec_insert __P((char *, FORMSPEC *));
 extern int fieldspec_remove __P((char *));
-extern int formspec_remove __P((char *));
-
 extern FIELDSPEC *fieldspec_search __P((const char *));
-extern FORMSPEC *formspec_search __P((const char *));
-
 extern void fieldspecs_walk __P((hash_wfunc *));
-extern void formspecs_walk __P((hash_wfunc *));
-
 extern STRINGLIST *fieldspec_to_stringlist __P((char **));
-extern STRINGLIST *formspec_to_stringlist __P((char **));
-
 extern STRINGLIST *gen_fieldspec_completions __P((FIELDSPEC *, const char *, const char *, int, int));
 extern char **field_specs __P((const char *, const char *, int, int, int *));
+
+extern FORMSPEC *formspec_create __P((void));
+extern void formspec_dispose __P((FORMSPEC *form));
+extern void formspecs_flush __P((void));
+extern void formspecs_dispose __P((void));
+extern int formspec_insert __P((char *, FORMSPEC *));
+extern int formspec_remove __P((char *));
+extern FORMSPEC *formspec_search __P((const char *));
+extern void formspecs_walk __P((hash_wfunc *));
+extern STRINGLIST *formspec_to_stringlist __P((char **));
 
 SCREENFORM *cf_screenform;
 
