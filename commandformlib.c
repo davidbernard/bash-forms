@@ -352,15 +352,15 @@ formspecs_dispose ()
 
 /* Remove a formspec from the formspec hash and free the formspec */
 int
-formspec_remove (cmd)
-	char *cmd;
+formspec_remove (formname)
+	char *formname;
 {
   register BUCKET_CONTENTS *item;
 
   if (formspecs == 0)
     return 1;
 
-  item = hash_remove (cmd, formspecs, 0);
+  item = hash_remove (formname, formspecs, 0);
   if (item)
     {
       if (item->data)
@@ -375,23 +375,23 @@ formspec_remove (cmd)
 
 /* 	Insert a new formspec into the formspec hash */
 int
-formspec_insert (cmd, cs)
-	char *cmd;
+formspec_insert (formname, cs)
+	char *formname;
 	FORMSPEC *cs;
 {
   register BUCKET_CONTENTS *item;
 
   if (cs == NULL)
-    programming_error ("formspec_insert: %s: NULL FORMSPEC", cmd);
+    programming_error ("formspec_insert: %s: NULL FORMSPEC", formname);
 
   if (formspecs == 0)
     formspecs_create ();
 
-  item = hash_insert (cmd, formspecs, 0);
+  item = hash_insert (formname, formspecs, 0);
   if (item->data)
     formspec_free (item->data);
   else
-    item->key = savestring (cmd);
+    item->key = savestring (formname);
   item->data = cs;
   return 1;
 }
@@ -399,8 +399,8 @@ formspec_insert (cmd, cs)
 
 /* Locate a formspec  via the formspec hash */
 FORMSPEC *
-formspec_search ( cmd )
-	const char *cmd;
+formspec_search ( formname )
+	const char *formname;
 {
   register BUCKET_CONTENTS *item;
   FORMSPEC *cs;
@@ -408,7 +408,7 @@ formspec_search ( cmd )
   if (formspecs == 0)
     return ((FORMSPEC *)NULL);
 
-  item = hash_search (cmd, formspecs, 0);
+  item = hash_search (formname, formspecs, 0);
 
   if (item == NULL)
     return ((FORMSPEC *)NULL);

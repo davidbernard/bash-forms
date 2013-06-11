@@ -113,7 +113,7 @@ debug_printf (format, va_alist)
 {
   va_list args;
 
-  if (fieldspec_debug == 0)
+  if (commandforms_debug == 0)
     return;
 
   SH_VA_START (args, format);

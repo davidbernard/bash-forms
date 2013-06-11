@@ -1,0 +1,24 @@
+
+This is a snapshop of the bash source tree with the changes for 
+"bash command forms". It has been configured to compile on Mac OS X.
+
+Look at "tests/forms-tests to get an idea.
+
+Source "tests/forms-tests" then enter the command "form copyfiles". 
+This should display a form for a fictional "copyfiles" command. Navigate
+with the up and down arrow keys to go from field to field. The return key
+will complete the form when on the last "positional" field. To get to the
+"flag" fields use the up and down arrow keys. To cycle between selections
+press the "space" key or the left or right arrow keys.
+
+If TAB is pressed twice, the hint line provides a list of "files". Use the 
+left and right arrows to select a file.
+
+BUGS
+This is just proof of concept. Please do not report bugs at this stage.
+
+
+David Bernard
+davidbernard@optushome.com.au
+
+
