@@ -3,7 +3,6 @@
 #	A form definiation for the "chmod" command
 #
 fieldspec +fieldtype uptolast \
-	+displaylevels simple general advanced \
 	+label "Files/Directories" \
 	+hinttext "Files/directories to copy" \
 	+helptext \
@@ -11,13 +10,11 @@ fieldspec +fieldtype uptolast \
 	cp.files
 
 fieldspec +fieldtype last \
-	+displaylevels simple general advanced \
 	+label "Destination" \
 	+hinttext "The new file or destination directory" \
 	cp.destination
 
 fieldspec +fieldtype flag \
-		+displaylevels advanced \
 		+label "Follow symbolic links" \
 		+values "" "-H" "-L" "-P" \
 		+displayvalues "" "On the command line" "Always" "Never" \
@@ -25,7 +22,6 @@ fieldspec +fieldtype flag \
 		cp.symboliclinks
 
 fieldspec +fieldtype flag \
-		+displaylevels general advanced \
 		+label "Recursive" \
 		+values "" "-R" \
 		+displayvalues "" \
@@ -34,7 +30,6 @@ fieldspec +fieldtype flag \
 		cp.recursively
 
 fieldspec +fieldtype flag \
-		+displaylevels advanced \
 		+label "User/Id & Times" \
 		+values "" "-p"  \
 		+displayvalues "New" \
@@ -43,7 +38,6 @@ fieldspec +fieldtype flag \
 		cp.preserve
 
 fieldspec +fieldtype flag \
-		+displaylevels advanced \
 		+label "Target Exists" \
 		+values "" "-f" "-n" \
 		+displayvalues "Overwrite" "Replace" "Don't Copy"  \
@@ -51,7 +45,6 @@ fieldspec +fieldtype flag \
 		cp.reuse
 
 fieldspec +fieldtype flag \
-		+displaylevels general advanced \
 		+label "Diagnostic" \
 		+values "" "-v" "-i" \
 		+displayvalues "Normal" \
@@ -60,14 +53,20 @@ fieldspec +fieldtype flag \
 		+hinttext "Display level for diagnostic messages" \
 		cp.diagnostic
 
-formspec +screenfieldlist \
+formspec \
+    +displaylevel=simple \
+     +screenfieldlist \
+			cp.files cp.destination \
+		 +generationfieldlist \
+			cp.files cp.destination \
+    +displaylevel=advanced \
+     +screenfieldlist \
 			cp.files cp.destination \
 			cp.reuse cp.preserve cp.recursively cp.diagnostic cp.symboliclinks \
-		+generationfieldlist \
+		 +generationfieldlist \
 			cp.reuse cp.preserve cp.recursively cp.diagnostic cp.symboliclinks \
 			cp.files cp.destination \
 		+command cp \
-    +displaylevels simple general advanced \
 		+formname cp
 
 

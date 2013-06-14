@@ -7,7 +7,6 @@ fieldspec +fieldtype rest \
 	+hinttext "Files/directories" \
 	+helptext \
 "The file permission modes of the identified files and directories will be changed" \
-	+displaylevel simple \
 	chmod.files
 
 fieldspec +fieldtype flagwithvalue \
@@ -20,7 +19,6 @@ fieldspec +fieldtype flagwithvalue \
 		"Read and Execute" "Read,Write and Execute" "Write Only and Execute" \
 		"Execute Only" "No Access" \
 	+separator "," \
-	+displaylevel simple \
 	chmod.user
 
 fieldspec +fieldtype flagwithvalue \
@@ -33,7 +31,6 @@ fieldspec +fieldtype flagwithvalue \
 		"Read and Execute" "Read,Write and Execute" "Write Only and Execute" \
 		"Execute Only" "No Access" \
 	+separator "," \
-	+displaylevel simple \
 	chmod.group
 
 fieldspec +fieldtype flagwithvalue \
@@ -46,7 +43,6 @@ fieldspec +fieldtype flagwithvalue \
 		"Read and Execute" "Read,Write and Execute" "Write Only and Execute" \
 		"Execute Only" "No Access" \
 	+separator "," \
-	+displaylevel simple \
 	chmod.other
 
 fieldspec +fieldtype flag \
@@ -54,7 +50,6 @@ fieldspec +fieldtype flag \
 		+values "" "-H" "-L" "-P" \
 		+displayvalues "" "On the command line" "Always" "Never" \
 		+hinttext "When recursing whether to follow symbolic links" \
-		+displaylevel advanced \
 		chmod.symboliclinks
 
 fieldspec +fieldtype flag \
@@ -63,7 +58,6 @@ fieldspec +fieldtype flag \
 		+displayvalues "" \
 				"Recursive"\
 		+hinttext "Perform actions to all directories and their contents" \
-		+displaylevel general \
 		chmod.recursively
 
 fieldspec +fieldtype flag \
@@ -73,7 +67,6 @@ fieldspec +fieldtype flag \
 				"On execution"\
 		+hinttext "Set the user id of the process running the program to the user id of the file" \
 		+separator "," \
-		+displaylevel advanced \
 		chmod.setuid
 
 fieldspec +fieldtype flag \
@@ -82,7 +75,7 @@ fieldspec +fieldtype flag \
 		+displayvalues "" \
 				"On execution"\
 		+hinttext "Set the group id of the process running the program to the group id of the file" \
-		+displaylevel advanced \
+		+separator "," \
 		chmod.setgid
 
 fieldspec +fieldtype flag \
@@ -91,8 +84,8 @@ fieldspec +fieldtype flag \
 		+displayvalues "Normal" \
 				"Verbose"\
 				"Suppress"\
+		+separator "," \
 		+hinttext "Display level for diagnostic messages" \
-		+displaylevel general \
 		chmod.diagnostic
 
 fieldspec +fieldtype flag \
@@ -101,10 +94,17 @@ fieldspec +fieldtype flag \
 		+displayvalues "Target" \
 				"Symbolic Link"\
 		+hinttext "Change the mode of the symbolic link rather than the target" \
-		+displaylevel advanced \
 		chmod.changesymboliclink
 
-formspec +screenfieldlist \
+formspec \
+    +displaylevel=simple \
+     +screenfieldlist \
+			chmod.user chmod.group chmod.other chmod.files \
+		+generationfieldlist \
+			chmod.user chmod.group chmod.other \
+			chmod.files \
+    +displaylevel=advance \
+     +screenfieldlist \
 			chmod.user chmod.group chmod.other chmod.files \
 			chmod.recursively chmod.diagnostic chmod.changesymboliclink chmod.symboliclinks \
 			 chmod.setuid chmod.setgid \

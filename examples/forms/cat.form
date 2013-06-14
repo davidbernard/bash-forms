@@ -6,7 +6,6 @@ fieldspec +fieldtype rest +label Files \
 	+hinttext "Concatonate the contents of these files" \
 	+helptext \
 "The contents of the named files is concatonated to standard output" \
-	+displaylevel simple \
 	cat.files
 
 fieldspec +fieldtype flagwithvalue +label "Output File" \
@@ -14,7 +13,6 @@ fieldspec +fieldtype flagwithvalue +label "Output File" \
 	+hinttext "Output file name - leave blank for standard output" \
 	+helptext \
 "The name of a file to be created with the result of the concatenation." \
-	+displaylevel simple \
 	cat.out
 
 fieldspec +fieldtype flag \
@@ -22,7 +20,6 @@ fieldspec +fieldtype flag \
 		+values "" "-b" "-n" \
 		+displayvalues "None" "Non blank lines" "All lines" \
 		+hinttext "Number lines on output" \
-		+displaylevel general \
 		cat.linenumbers
 
 fieldspec +fieldtype flag \
@@ -33,7 +30,6 @@ fieldspec +fieldtype flag \
 				"Non-printing and tab as ^I" \
 				"Non-printing and mark end of line as $" \
 		+hinttext "Translation of Non-printing characters" \
-		+displaylevel general \
 		cat.translations
 
 fieldspec +fieldtype flag \
@@ -42,13 +38,19 @@ fieldspec +fieldtype flag \
 		+displayvalues "None" \
 				"Adjacent empty lines"\
 		+hinttext "Remove adjacent empty line to make single lines spaced" \
-		+displaylevel advanced \
 		cat.squeeze
 
-formspec +screenfieldlist \
+formspec \
+    +displaylevel=simple \
+     +screenfieldlist \
+			cat.files cat.out \
+		 +generationfieldlist \
+			cat.files cat.out \
+    +displaylevel=advanced \
+     +screenfieldlist \
 			cat.files cat.out \
 			cat.linenumbers cat.translations cat.squeeze \
-		+generationfieldlist \
+		 +generationfieldlist \
 			cat.linenumbers cat.translations cat.squeeze \
 			cat.files cat.out \
 			+command cat \

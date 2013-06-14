@@ -59,7 +59,7 @@ typedef enum {
 	} CF_FIELD_TYPE;
 
 /* Field on a screen when a form is displayed */
-typedef struct screenfield {
+struct screenfield {
 	struct fieldspec *fieldspec;
 	char *value;
 	char *displayvalue;
@@ -76,9 +76,10 @@ typedef struct screenfield {
 	int completionstartindex;
 	int completionnextindex;
 	int completioncurrentindex;
-	} SCREENFIELD;
+	};
+typedef struct screenfield SCREENFIELD;
 
-typedef struct screenform {
+struct screenform {
 	struct formspec *formspec;
 	SCREENFIELD *screenfields;
 	int height;
@@ -90,19 +91,21 @@ typedef struct screenform {
 	int maxlabelwidth;
 	SCREENFIELD *currentscreenfield;
 	CF_NAVIGATION nextnavigation;
-	char *displaylevel;
-	} SCREENFORM;
+	struct displaylevel *displaylevel;
+	} ;
+typedef struct screenform SCREENFORM;
 
 /* Field specification for a type of a field */
-typedef struct fieldspec {
+struct fieldspec {
 	int refcount;
-/* Type of field */
-	CF_FIELD_TYPE fieldtype;
-/* Hint and help text */
-	char *hinttext;
-	char *helptext;
 /* Label to appear on screen */
 	char *label;
+/* Type of field */
+	CF_FIELD_TYPE fieldtype;
+/* Optional function for command completion */
+	char *compspec;
+/* Optional separator string */
+	char *separator;
 /* If value present then precede with this flag */
 	char *flag;
 /* Values to use for generation of command  - first value is default
@@ -111,42 +114,53 @@ typedef struct fieldspec {
 	char **values;
 /* Values to use for dislaying list of options if different from above */
 	char **displayvalues;
-/* Optional function for command completion */
-	char *compspec;
-/* Optional separator string */
-	char *separator;
-/* Determines the display levels the field is displayed in */
-	char **displaylevels;
-	} FIELDSPEC;
+/* Hint and help text */
+	char *hinttext;
+	char *helptext;
+	} ;
+typedef struct fieldspec FIELDSPEC;
 
 /* Links the name used to add a field  to a formspec */
-typedef struct formfieldspec {
+struct formfieldspec {
 	char *fieldspecname;
 	FIELDSPEC *fieldspec;
 	/* Currently displayed screen field */
 	SCREENFIELD *screenfield;  
 	/* Link between generation and display field list fields */
 	struct formfieldspec *crosslink;
-	} FORMFIELDSPEC;
+	} ;
+typedef struct formfieldspec FORMFIELDSPEC;
+
+/* Display level */
+struct displaylevel  {
+	/* Name of display level */
+	char *displaylevel;
+	/* List of fields as they appear on screen */
+	FORMFIELDSPEC **screenfieldlist;
+	/* List of fields in the order of command generation */
+	FORMFIELDSPEC **generationfieldlist;
+	/* Could of fields */
+	int fieldcount;
+
+};
+typedef struct displaylevel DISPLAYLEVEL;
 
 /* Form Specification */
-typedef struct formspec {
-	/* List of fields as they appear on screen */
-	FORMFIELDSPEC **screenfieldlist; 		
-	/* List of fields in the order of command generation */
-	FORMFIELDSPEC **generationfieldlist;	
+struct formspec {
 	/* Command to execute */
 	char *command;
 	/* Count of fields */
-	int fieldcount;
+	int displaylevelcount;
 	/* Display levels supported by this form - the first level is the default*/
-	char **displaylevels;
-	} FORMSPEC;
+	DISPLAYLEVEL **displaylevels;
+	};
+typedef struct formspec FORMSPEC;
 
 /* Table for definition of pre-defined field types */
-typedef struct fieldtypedef {
+struct fieldtypedef {
 	char *type_name;
-	} FIELDTYPEDEF;
+	} ;
+typedef struct fieldtypedef FIELDTYPEDEF;
 
 /*
     Data types
@@ -191,6 +205,8 @@ extern int formspec_remove __P((char *));
 extern FORMSPEC *formspec_search __P((const char *));
 extern void formspecs_walk __P((hash_wfunc *));
 extern STRINGLIST *formspec_to_stringlist __P((char **));
+extern DISPLAYLEVEL *displaylevel_create __P((void));
+extern void displaylevel_dispose __P((DISPLAYLEVEL *));
 
 SCREENFORM *cf_screenform;
 

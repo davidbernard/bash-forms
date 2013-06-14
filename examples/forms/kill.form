@@ -5,18 +5,18 @@
 complete -A signal kill.signal
 fieldspec +fieldtype rest +label Processes \
 	+hinttext "Process id of processes to send signal to" \
-	+displaylevel simple \
 	kill.processes
 
 fieldspec +fieldtype flag +label "Signal" \
 	+flag "-s " \
 	+hinttext "Signal to send to process" \
-	+displaylevel simple \
 	+compspec kill.signal \
 	kill.signal
 
 
-formspec +screenfieldlist \
+formspec \
+    +displaylevel=simple \
+     +screenfieldlist \
 			kill.signal kill.processes \
 		+generationfieldlist \
 			kill.signal kill.processes \

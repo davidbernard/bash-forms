@@ -73,7 +73,6 @@ fieldspec_create ()
 	ret->displayvalues = (char **)0;
 	ret->compspec = (char *)NULL;
 	ret->separator = (char *)NULL;
-	ret->displaylevels = (char **)NULL;
 
 	return ret;
 }
@@ -103,11 +102,6 @@ fieldspec_dispose (cs)
 	  }
 	  FREE(cs->compspec);
 	  FREE(cs->separator);
-	  if ( cs->displaylevels )
-	  {
-		 FREE(cs->displaylevels[0]);
-		 FREE(cs->displaylevels);
-	  }
       free (cs);
     }
 }
@@ -268,11 +262,9 @@ formspec_create ()
 	ret = (FORMSPEC *)xmalloc (sizeof (FORMSPEC));
 	memset(ret, 0, sizeof(FORMSPEC) );
 
-	ret->screenfieldlist = (FORMFIELDSPEC **)NULL;
-	ret->generationfieldlist = (FORMFIELDSPEC **)NULL;
 	ret->command = (char *)NULL;
-	ret->fieldcount = 0;
-	ret->displaylevels = (char **)NULL;
+	ret->displaylevelcount = 0;
+	ret->displaylevels = (DISPLAYLEVEL **)NULL;
 	return ret;
 }
 
@@ -281,31 +273,15 @@ void
 formspec_dispose (form)
 	FORMSPEC *form;
 {
-	FORMFIELDSPEC **l;
+	DISPLAYLEVEL **dl;
 
-	/* 	Decrement the retain counts for all associated fields
-	and free field list entries */
-	if (form->screenfieldlist)
-	{
-		for(l=form->screenfieldlist; *l; l++)
-		{
-			(*l)->fieldspec->refcount--;
-			free(*l);
-		}
-		free(form->screenfieldlist);
-	}
-	if (form->generationfieldlist)
-	{
-		for(l=form->generationfieldlist; *l; l++)
-		{
-			free(*l);
-		}
-		free(form->generationfieldlist);
-	}
 	free(form->command);
 	if ( form->displaylevels )
 	{
-		FREE(form->displaylevels[0]);
+		for(dl=form->displaylevels; *dl; dl++)
+		{
+			displaylevel_dispose(*dl);
+		}
 		FREE(form->displaylevels);
 	}
 
@@ -431,4 +407,50 @@ formspecs_walk (pfunc)
   hash_walk (formspecs, pfunc);
 }
 
+DISPLAYLEVEL *
+displaylevel_create ()
+{
+	DISPLAYLEVEL *ret;
+
+	ret = (DISPLAYLEVEL *)xmalloc (sizeof (DISPLAYLEVEL));
+	memset(ret, 0, sizeof(DISPLAYLEVEL) );
+
+	ret->screenfieldlist = (FORMFIELDSPEC **)NULL;
+	ret->generationfieldlist = (FORMFIELDSPEC **)NULL;
+	ret->displaylevel = (char *)NULL;
+	ret->fieldcount = 0;
+	return ret;
+}
+
+/* Dispose of display level */
+void
+displaylevel_dispose(displaylevel)
+DISPLAYLEVEL *displaylevel;
+{
+FORMFIELDSPEC **l;
+
+/* 	Decrement the retain counts for all associated fields
+and free field list entries */
+if (displaylevel->screenfieldlist)
+{
+	for(l=displaylevel->screenfieldlist; *l; l++)
+	{
+		(*l)->fieldspec->refcount--;
+		free(*l);
+	}
+	free(displaylevel->screenfieldlist);
+}
+if (displaylevel->generationfieldlist)
+{
+	for(l=displaylevel->generationfieldlist; *l; l++)
+	{
+		free(*l);
+	}
+	free(displaylevel->generationfieldlist);
+}
+free(displaylevel->displaylevel);
+
+/* Free form */
+free (displaylevel);
+}
 #endif /* COMMAND_FORMS */
