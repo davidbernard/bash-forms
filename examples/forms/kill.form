@@ -7,7 +7,7 @@ fieldspec +fieldtype rest +label Processes \
 	+hinttext "Process id of processes to send signal to" \
 	kill.processes
 
-fieldspec +fieldtype flag +label "Signal" \
+fieldspec +fieldtype flagwithvalue +label "Signal" \
 	+flag "-s " \
 	+hinttext "Signal to send to process" \
 	+compspec kill.signal \

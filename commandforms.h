@@ -190,11 +190,13 @@ extern void fieldspecs_flush __P((void));
 extern int fieldspec_insert __P((char *, FIELDSPEC *));
 extern void fieldspec_retain __P(( FIELDSPEC *));
 extern int fieldspec_remove __P((char *));
+extern int fieldspec_print __P((char *, FIELDSPEC *));
 extern FIELDSPEC *fieldspec_search __P((const char *));
 extern void fieldspecs_walk __P((hash_wfunc *));
 extern STRINGLIST *fieldspec_to_stringlist __P((char **));
 extern STRINGLIST *gen_fieldspec_completions __P((FIELDSPEC *, const char *, const char *, int, int));
 extern char **field_specs __P((const char *, const char *, int, int, int *));
+
 
 extern FORMSPEC *formspec_create __P((void));
 extern void formspec_dispose __P((FORMSPEC *form));
@@ -202,11 +204,27 @@ extern void formspecs_flush __P((void));
 extern void formspecs_dispose __P((void));
 extern int formspec_insert __P((char *, FORMSPEC *));
 extern int formspec_remove __P((char *));
+extern int formspec_print __P(( char *, FORMSPEC *));
 extern FORMSPEC *formspec_search __P((const char *));
 extern void formspecs_walk __P((hash_wfunc *));
 extern STRINGLIST *formspec_to_stringlist __P((char **));
+
 extern DISPLAYLEVEL *displaylevel_create __P((void));
 extern void displaylevel_dispose __P((DISPLAYLEVEL *));
+
+extern void screenform_dispose __P((SCREENFORM *));
+extern SCREENFORM * screenform_init __P((FORMSPEC *, DISPLAYLEVEL *, char *));
+extern void screenform_draw __P((SCREENFORM *));
+extern void screenform_layout __P((SCREENFORM *));
+extern void screenform_displayhinttext __P((SCREENFORM *,CF_EDIT_MODE));
+extern void screenform_populatefieldsfrompartialcommand __P((SCREENFORM *,WORD_LIST *));
+extern void screenform_gotofield __P((SCREENFORM *, SCREENFIELD *, CF_EDIT_MODE));
+extern int screenform_gotonextfield __P((SCREENFORM *, CF_EDIT_MODE));
+extern void screenform_gotopreviousfield __P((SCREENFORM *, CF_EDIT_MODE));
+extern void screenform_editscreenfield __P((SCREENFORM *, CF_EDIT_MODE));
+
+extern int screenfield_generatedargumentlength __P((SCREENFIELD *screenfield));
+extern char * screenfield_generateargument __P((SCREENFIELD *));
 
 SCREENFORM *cf_screenform;
 

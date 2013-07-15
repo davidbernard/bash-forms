@@ -7,7 +7,7 @@ fieldspec +fieldtype uptolast \
 	+hinttext "Files/directories to copy" \
 	+helptext \
 "The files/directories to copy to the destination" \
-	cp.files
+	-- cp.files
 
 fieldspec +fieldtype last \
 	+label "Destination" \
