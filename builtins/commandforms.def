@@ -920,8 +920,41 @@ usage_error:
 $BUILTIN form
 $DEPENDS_ON COMMAND_FORMS
 $FUNCTION form_builtin
-$SHORT_DOC form [-x]  [-l] command arg1 arg2 ..
+$SHORT_DOC form [-x]  [-l] formname arg1 arg2 ..
 Display the form for the command.
+
+An on screen form is displayed for the entry of arguments for the command.
+
+"formname" is the name a form specification defined previously with formspec.
+
+The top line of the form displays the name of the form.
+
+The second last line of the form displays the "display level" at the end of 
+the line. A user can cycle through different versions or display levels of the
+form using CTL-L. This redraws the form at a different display level.
+
+The bottom line display a prompt for the current field or command completion 
+alternatices.
+
+The form consists of a number of fields. Fields are either positional or flags.
+
+The user can use command completion to enter a field value. Alternatives 
+are displayed on the bottom line of the form. Repeated command completion 
+operations cycle through possible values.
+
+The user moves from field to field using arrow keys or return. Entering return
+the last positional field will complete the form.
+
+Some fields allow a user to select from a number of alternatives using the 
+left/right arrow keys, the space key or the first letter of the alternative.
+
+The generated command line is inserted into the command line allowing
+the user to edit the command and execute it.
+
+Options:
+-x   Causes the command line to be executed on form entry
+-l   Entry of the form is line by line
+
 $END
 
 /* 
@@ -1021,7 +1054,7 @@ form_builtin (list)
         screenform->currenty++;
 
         /* Note:
-          Keystroke functions in readline/form_mode.c us the gobal
+          Keystroke functions in called from readline/form_mode.c use the gobal
           cf_screenform to set "nextnavigation".
           This use of side effects is to avoid changing the main
           call of "readline". */
@@ -1086,7 +1119,12 @@ form_builtin (list)
 
         case CF_NEXT_FIELD:
           /* Navigate to next field */
-          screenform_gotonextfield(screenform, cf_edit_mode);
+          if (0 == screenform_gotonextfield(screenform, cf_edit_mode))
+          {
+          	/* already on last field */
+          	suppress_hint = 1;
+          	continue;
+          }
           break;
         case CF_PREVIOUS_FIELD:
           /* If not on field field move to previous field */
