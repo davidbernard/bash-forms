@@ -324,6 +324,9 @@ fi
 if test $opt_progcomp = yes; then
 AC_DEFINE(PROGRAMMABLE_COMPLETION)
 fi
+if test $opt_commandforms = yes; then
+AC_DEFINE(COMMAND_FORMS)
+fi
 if test $opt_multibyte = no; then
 AC_DEFINE(NO_MULTIBYTE_SUPPORT)
 fi

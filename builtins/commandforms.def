@@ -36,7 +36,7 @@ $PRODUCES commandforms.c
 
 #include "../shell.h"
 #include "../builtins.h"
-#include "../commandforms.h"
+#include <commandforms/commandforms.h>
 
 #include "common.h"
 #include "bashgetopt.h"
@@ -46,17 +46,17 @@ $PRODUCES commandforms.c
 #define STRDUP(x) ((x) ? savestring (x) : (char *)NULL)
 
 /* Forward references */
-static int fieldspec_printitem __P((BUCKET_CONTENTS*));
-static int fieldspec_removeall __P((WORD_LIST *));
-static void fieldspec_printall __P((void));
-static int fieldspec_printlist __P((WORD_LIST *));
+static int fieldspec_printitem __P ((BUCKET_CONTENTS *));
+static int fieldspec_removeall __P ((WORD_LIST *));
+static void fieldspec_printall __P ((void));
+static int fieldspec_printlist __P ((WORD_LIST *));
 
-static void formspec_printall __P((void));
-static int formspec_printlist __P((WORD_LIST *));
-static int formspec_printitem __P((BUCKET_CONTENTS *));
-static int formspec_removeall __P((WORD_LIST *));
+static void formspec_printall __P ((void));
+static int formspec_printlist __P ((WORD_LIST *));
+static int formspec_printitem __P ((BUCKET_CONTENTS *));
+static int formspec_removeall __P ((WORD_LIST *));
 
-static int build_displaylevel __P((char *,DISPLAYLEVEL **,WORD_LIST **));
+static int build_displaylevel __P ((char *, DISPLAYLEVEL **, WORD_LIST **));
 
 /* Static state variables */
 static CF_EXECUTION_MODE cf_execution_mode = CF_MODE_DISPLAY;
@@ -66,13 +66,13 @@ static CF_EDIT_MODE cf_edit_mode = CF_MODE_FORM;
   of field spec hash */
 static int
 fieldspec_printitem (item)
-BUCKET_CONTENTS *item;
+     BUCKET_CONTENTS *item;
 {
   FIELDSPEC *cs;
   char *cmd;
 
   cmd = item->key;
-  cs = (FIELDSPEC *)item->data;
+  cs = (FIELDSPEC *) item->data;
 
   return (fieldspec_print (cmd, cs));
 }
@@ -94,16 +94,17 @@ fieldspec_printlist (list)
   int ret;
 
   for (ret = EXECUTION_SUCCESS, l = list; l; l = l->next)
-  {
-    cs = fieldspec_search (l->word->word);
-    if (cs)
-      fieldspec_print (l->word->word, cs);
-    else
     {
-      builtin_error ("%s: no such fieldspec specification", l->word->word);
-      ret = EXECUTION_FAILURE;
+      cs = fieldspec_search (l->word->word);
+      if (cs)
+        fieldspec_print (l->word->word, cs);
+      else
+        {
+          builtin_error ("%s: no such fieldspec specification",
+                         l->word->word);
+          ret = EXECUTION_FAILURE;
+        }
     }
-  }
   return (ret);
 }
 
@@ -117,13 +118,14 @@ fieldspec_removeall (list)
   int ret;
 
   for (ret = EXECUTION_SUCCESS, l = list; l; l = l->next)
-  {
-    if (fieldspec_remove (l->word->word) == 0)
     {
-      builtin_error ("%s: no fieldspec specification or fieldspec in use", l->word->word);
-      ret = EXECUTION_FAILURE;
+      if (fieldspec_remove (l->word->word) == 0)
+        {
+          builtin_error ("%s: no fieldspec specification or fieldspec in use",
+                         l->word->word);
+          ret = EXECUTION_FAILURE;
+        }
     }
-  }
   return ret;
 }
 
@@ -164,7 +166,7 @@ $END
 /* Add, remove, and display field specifiers. */
 int
 fieldspec_builtin (list)
-WORD_LIST *list;
+     WORD_LIST *list;
 {
   FIELDSPEC *cs;
   WORD_LIST *l;
@@ -208,7 +210,7 @@ WORD_LIST *list;
   compspec = NULL;
   separator = NULL;
   flag = NULL;
-  
+
   /* fieldspec */
   if (list == 0)
     {
@@ -217,39 +219,39 @@ WORD_LIST *list;
     }
 
   /* fieldspec -p <fieldspec name> ... */
-  if ( strcmp("-p", list->word->word) == 0)
-  {
-    l = list->next;
-    if (l == 0)
+  if (strcmp ("-p", list->word->word) == 0)
     {
-      fieldspec_printall ();
-      return (EXECUTION_SUCCESS);
+      l = list->next;
+      if (l == 0)
+        {
+          fieldspec_printall ();
+          return (EXECUTION_SUCCESS);
+        }
+      else
+        return (fieldspec_printlist (l));
+
     }
-    else
-      return (fieldspec_printlist (l));
-    
-  }
   /* fieldspec -r <fieldspec name > ... */
-  else if ( strcmp("-r", list->word->word) == 0)
-  {
-    l = list->next;
-    if (l == 0)
+  else if (strcmp ("-r", list->word->word) == 0)
     {
-      fieldspecs_flush ();
-      return (EXECUTION_SUCCESS);
+      l = list->next;
+      if (l == 0)
+        {
+          fieldspecs_flush ();
+          return (EXECUTION_SUCCESS);
+        }
+      else
+        return (fieldspec_removeall (l));
     }
-    else
-      return (fieldspec_removeall (l));
-  }
   else
-  {
-    for (l = list; l; )
     {
-      if (strcmp("--", l->word->word) == 0)
-      {
-        l = l->next;
-        break;
-      }
+      for (l = list; l;)
+        {
+          if (strcmp ("--", l->word->word) == 0)
+            {
+              l = l->next;
+              break;
+            }
 #define CHECKFORSTRINGARG(arg, variable)\
      else if ( strcmp(arg, l->word->word) == 0) \
      { \
@@ -266,197 +268,201 @@ WORD_LIST *list;
      }
 
 
-    CHECKFORSTRINGARG("+label", label)
-    CHECKFORSTRINGARG("+fieldtype", fieldtype)
-    CHECKFORSTRINGARG("+compspec", compspec)
-    CHECKFORSTRINGARG("+separator", separator)
-    CHECKFORSTRINGARG("+flag", flag)
+          CHECKFORSTRINGARG ("+label", label)
+            CHECKFORSTRINGARG ("+fieldtype", fieldtype)
+            CHECKFORSTRINGARG ("+compspec", compspec)
+            CHECKFORSTRINGARG ("+separator", separator)
+            CHECKFORSTRINGARG ("+flag", flag)
+          else if (strcmp ("+values", l->word->word) == 0)
+            {
+              valueslist = l->next;
+              valueslength = 0;
+              valuescount = 0;
+              /* Determine the length the values string will need 
+                 Note: Last word is always command */
+              for (ll = l->next; ll->next; ll = ll->next)
+                {
+                  if (ll->word->word[0] == '+')
+                    {
+                      l = ll;
+                      goto next;
+                    }
+                  else
+                    {
+                      valueslength += strlen (ll->word->word) + 1;
+                      valuescount++;
+                    }
+                }
+              l = ll;
+              goto next;
+            }
+          else if (strcmp ("+displayvalues", l->word->word) == 0)
+            {
+              displayvalueslist = l->next;
+              displayvalueslength = 0;
+              displayvaluescount = 0;
+              /* Determine the length the values string will need 
+                 Note: Last word is always command */
+              for (ll = l->next; ll->next; ll = ll->next)
+                {
+                  if (ll->word->word[0] == '+')
+                    {
+                      l = ll;
+                      goto next;
+                    }
+                  else
+                    {
+                      displayvalueslength += strlen (ll->word->word) + 1;
+                      displayvaluescount++;
+                    }
+                }
+              l = ll;
+              goto next;
+            }
+          CHECKFORSTRINGARG ("+hinttext", hinttext)
+            CHECKFORSTRINGARG ("+helptext", helptext)
+          else
+            {
+              /* Should follow list of field names */
+              break;
+            }
 
-    else if ( strcmp("+values", l->word->word) == 0)
-    {
-      valueslist= l->next;
-      valueslength = 0;
-      valuescount = 0;
-      /* Determine the length the values string will need 
-         Note: Last word is always command */
-      for ( ll = l->next; ll->next; ll = ll->next)
-      {
-        if ( ll->word->word[0] == '+' )
-        {
-          l = ll;
-          goto next;
+          l = l->next;
+        next:
+          /* l progressed */
+          ;
         }
-        else
-        {
-          valueslength += strlen(ll->word->word) + 1;
-          valuescount++;
-        }
-      }
-      l = ll;
-      goto next;
     }
-    else if ( strcmp("+displayvalues", l->word->word) == 0)
-    {
-      displayvalueslist= l->next;
-      displayvalueslength = 0;
-      displayvaluescount = 0;
-      /* Determine the length the values string will need 
-         Note: Last word is always command */
-      for ( ll = l->next; ll->next; ll = ll->next)
-      {
-        if ( ll->word->word[0] == '+' )
-        {
-          l = ll;
-          goto next;
-        }
-        else
-        {
-          displayvalueslength += strlen(ll->word->word) + 1;
-          displayvaluescount++;
-        }
-      }
-      l = ll;
-      goto next;
-    }
-    CHECKFORSTRINGARG("+hinttext", hinttext)
-    CHECKFORSTRINGARG("+helptext", helptext)
-    else
-    {
-      /* Should follow list of field names */
-      break;
-    }
-
-    l = l->next;
-next:
-    /* l progressed */
-    ;
-    }
-  } 
 
   list = l;
-  if (list == 0 )
-  {
-    builtin_usage ();
-    return (EX_USAGE);
-  }
+  if (list == 0)
+    {
+      builtin_usage ();
+      return (EX_USAGE);
+    }
 
   /* Check for each display value there is a value */
   if (displayvaluescount > 0 && valuescount != displayvaluescount)
-  {
-    builtin_error ("%s: 'values' and 'displayvalues' must have same number of values", l->word->word);
-    return(EX_USAGE);
-  }
+    {
+      builtin_error
+        ("%s: 'values' and 'displayvalues' must have same number of values",
+         l->word->word);
+      return (EX_USAGE);
+    }
 
   /* is fieldspec already defined */
-  cs = fieldspec_search(l->word->word);
+  cs = fieldspec_search (l->word->word);
 
   if (cs)
-  {
-    if (fieldspec_remove(l->word->word))
     {
-      builtin_warning ("%s:  fieldspec already exists - replacing", l->word->word);
+      if (fieldspec_remove (l->word->word))
+        {
+          builtin_warning ("%s:  fieldspec already exists - replacing",
+                           l->word->word);
+        }
+      else
+        {
+          builtin_error ("%s: fieldspec already exists and in use",
+                         l->word->word);
+          return (EXECUTION_FAILURE);
+        }
     }
-    else
-    {
-      builtin_error ("%s: fieldspec already exists and in use", l->word->word);
-      return (EXECUTION_FAILURE);
-    }
-  }
 
   /* If we get here, we need to build a fieldspec and add it for each
      remaining argument. */
-  cs = fieldspec_create();
-  
+  cs = fieldspec_create ();
+
   cs->valuescount = valuescount;
 
   if (fieldtype && *fieldtype)
-  {
-    if (strcmp(fieldtype, "positional") == 0)
-    cs->fieldtype = CF_FIELD_TYPE_POSITIONAL;
-    else if (strcmp(fieldtype, "flag") == 0)
-    cs->fieldtype = CF_FIELD_TYPE_FLAG;
-    else if (strcmp(fieldtype, "last") == 0)
-    cs->fieldtype = CF_FIELD_TYPE_LAST;
-    else if (strcmp(fieldtype, "rest") == 0)
-    cs->fieldtype = CF_FIELD_TYPE_REST;
-    else if (strcmp(fieldtype, "uptolast") == 0)
-    cs->fieldtype = CF_FIELD_TYPE_UPTOLAST;
-    else if (strcmp(fieldtype, "flagwithvalue") == 0)
-    cs->fieldtype = CF_FIELD_TYPE_FLAGWITHVALUE;
-    else
     {
-      free(cs);
-      builtin_error ("%s: Invalid field type", fieldtype);
-      return(EX_USAGE);
+      if (strcmp (fieldtype, "positional") == 0)
+        cs->fieldtype = CF_FIELD_TYPE_POSITIONAL;
+      else if (strcmp (fieldtype, "flag") == 0)
+        cs->fieldtype = CF_FIELD_TYPE_FLAG;
+      else if (strcmp (fieldtype, "last") == 0)
+        cs->fieldtype = CF_FIELD_TYPE_LAST;
+      else if (strcmp (fieldtype, "rest") == 0)
+        cs->fieldtype = CF_FIELD_TYPE_REST;
+      else if (strcmp (fieldtype, "uptolast") == 0)
+        cs->fieldtype = CF_FIELD_TYPE_UPTOLAST;
+      else if (strcmp (fieldtype, "flagwithvalue") == 0)
+        cs->fieldtype = CF_FIELD_TYPE_FLAGWITHVALUE;
+      else
+        {
+          free (cs);
+          builtin_error ("%s: Invalid field type", fieldtype);
+          return (EX_USAGE);
+        }
     }
-  }
   else
     cs->fieldtype = CF_FIELD_TYPE_POSITIONAL;
 
   cs->hinttext = STRDUP (hinttext);
   cs->helptext = STRDUP (helptext);
-  if ( label )
+  if (label)
     cs->label = STRDUP (label);
   else
-    cs->label = STRDUP(list->word->word);
+    cs->label = STRDUP (list->word->word);
 
-  
-  if ( valuescount > 0)
-  {
-    cs->values = xmalloc((unsigned int)((valuescount + 1) * sizeof(char *)) );
-    cs->values[0] = xmalloc((unsigned int)valueslength);
 
-    op = cs->values[0];
-    for(i=0, ll = valueslist; ll->next; i++, ll = ll->next)
+  if (valuescount > 0)
     {
-      if ( ll->word->word[0] == '+' )
-        break;
-      else
-      if ( ll->word->word[0] == '\\')
-        ip =  ll->word->word + 1;
-      else
-        ip =  ll->word->word;
-      cs->values[i] = op;
+      cs->values =
+        xmalloc ((unsigned int) ((valuescount + 1) * sizeof (char *)));
+      cs->values[0] = xmalloc ((unsigned int) valueslength);
 
-      while( (*op++ = *ip++) ) ;
-      
+      op = cs->values[0];
+      for (i = 0, ll = valueslist; ll->next; i++, ll = ll->next)
+        {
+          if (ll->word->word[0] == '+')
+            break;
+          else if (ll->word->word[0] == '\\')
+            ip = ll->word->word + 1;
+          else
+            ip = ll->word->word;
+          cs->values[i] = op;
+
+          while ((*op++ = *ip++));
+
+        }
+      cs->values[i] = 0;
     }
-        cs->values[i] = 0;
-  }
 
-  if ( displayvaluescount > 0)
-  {
-    cs->displayvalues = xmalloc((unsigned int)((displayvaluescount + 1) * sizeof(char *)) );
-    cs->displayvalues[0] = xmalloc((unsigned int)displayvalueslength);
-
-    op = cs->displayvalues[0];
-    for(i=0, ll = displayvalueslist; ll->next; i++, ll = ll->next)
+  if (displayvaluescount > 0)
     {
-      if ( ll->word->word[0] == '+' )
-        break;
-      else
-      {
-        ip =  ll->word->word;
-        cs->displayvalues[i] = op;
-        while( (*op++ = *ip++) ) ;
-      }
-      
+      cs->displayvalues =
+        xmalloc ((unsigned int) ((displayvaluescount + 1) * sizeof (char *)));
+      cs->displayvalues[0] = xmalloc ((unsigned int) displayvalueslength);
+
+      op = cs->displayvalues[0];
+      for (i = 0, ll = displayvalueslist; ll->next; i++, ll = ll->next)
+        {
+          if (ll->word->word[0] == '+')
+            break;
+          else
+            {
+              ip = ll->word->word;
+              cs->displayvalues[i] = op;
+              while ((*op++ = *ip++));
+            }
+
+        }
+      cs->displayvalues[i] = 0;
     }
-    cs->displayvalues[i] = 0;
-  }
   else
-  {
-    /* Have displayvalues point to same place 
-       Note: When freeing fieldspec must check before freeing displayvalues */
-    cs->displayvalues = cs->values;
-  }
+    {
+      /* Have displayvalues point to same place 
+         Note: When freeing fieldspec must check before freeing displayvalues */
+      cs->displayvalues = cs->values;
+    }
 
   cs->compspec = STRDUP (compspec);
   cs->separator = STRDUP (separator);
   cs->flag = STRDUP (flag);
 
   if (fieldspec_insert (list->word->word, cs) == 0)
-    return(EXECUTION_FAILURE);
+    return (EXECUTION_FAILURE);
   else
     return (EXECUTION_SUCCESS);
 
@@ -467,13 +473,13 @@ usage_error:
 
 static int
 formspec_printitem (item)
-    BUCKET_CONTENTS *item;
+     BUCKET_CONTENTS *item;
 {
   FORMSPEC *formspec;
   char *formname;
 
   formname = item->key;
-  formspec = (FORMSPEC *)item->data;
+  formspec = (FORMSPEC *) item->data;
 
   return (formspec_print (formname, formspec));
 }
@@ -492,7 +498,7 @@ formspec_printall ()
  */
 static int
 formspec_printlist (list)
-    WORD_LIST *list;
+     WORD_LIST *list;
 {
   WORD_LIST *l;
   FORMSPEC *cs;
@@ -502,12 +508,12 @@ formspec_printlist (list)
     {
       cs = formspec_search (l->word->word);
       if (cs)
-  formspec_print (l->word->word, cs);
+        formspec_print (l->word->word, cs);
       else
-  {
-    builtin_error ("%s: no formspec specification", l->word->word);
-    ret = EXECUTION_FAILURE;
-  }
+        {
+          builtin_error ("%s: no formspec specification", l->word->word);
+          ret = EXECUTION_FAILURE;
+        }
     }
   return (ret);
 }
@@ -516,7 +522,7 @@ formspec_printlist (list)
   Remove all form specifiers
  */
 static int
-formspec_removeall(list)
+formspec_removeall (list)
      WORD_LIST *list;
 {
 
@@ -526,10 +532,10 @@ formspec_removeall(list)
   for (ret = EXECUTION_SUCCESS, l = list; l; l = l->next)
     {
       if (formspec_remove (l->word->word) == 0)
-  {
-    builtin_error ("%s: no formspec specification", l->word->word);
-    ret = EXECUTION_FAILURE;
-  }
+        {
+          builtin_error ("%s: no formspec specification", l->word->word);
+          ret = EXECUTION_FAILURE;
+        }
     }
   return ret;
 }
@@ -541,18 +547,18 @@ formspec_removeall(list)
 */
 
 static int
-build_displaylevel(displaylevelname, displaylevel, list)
-  char *displaylevelname;
-  DISPLAYLEVEL **displaylevel;
-  WORD_LIST **list;
+build_displaylevel (displaylevelname, displaylevel, list)
+     char *displaylevelname;
+     DISPLAYLEVEL **displaylevel;
+     WORD_LIST **list;
 {
   int rval;
   DISPLAYLEVEL *dl;
   WORD_LIST *l;
   WORD_LIST *ll;
   WORD_LIST *lll;
-  WORD_LIST *screenfieldlist = (WORD_LIST *)0;
-  WORD_LIST *generationfieldlist = (WORD_LIST *)0;
+  WORD_LIST *screenfieldlist = (WORD_LIST *) 0;
+  WORD_LIST *generationfieldlist = (WORD_LIST *) 0;
   int screenfieldcount = 0;
   int generationfieldcount = 0;
   int i;
@@ -560,158 +566,180 @@ build_displaylevel(displaylevelname, displaylevel, list)
 
   dl = 0;
 
-  for(l=*list; l; )
-  {
+  for (l = *list; l;)
+    {
 
-    if ( strcmp("+screenfieldlist", l->word->word) == 0)
-    {
-      /* Count screenfieldlist*/
-      screenfieldlist = l->next;
-      for(ll=l->next; ll; ll = ll->next)
-      {
-        if ( ll->word->word[0] == '+' )
+      if (strcmp ("+screenfieldlist", l->word->word) == 0)
         {
-           l = ll;
-          goto next;
-        }
-        else
-          screenfieldcount++;
-        if ( (FIELDSPEC *)0 == fieldspec_search(ll->word->word) )
-        {
-          builtin_error ("%s: Invalid field name", ll->word->word); \
-          goto usage_error;
-        }
-      }
-      l = ll;
-    }
-    else if ( strcmp("+generationfieldlist", l->word->word) == 0)
-    {
-      /* Count generationfieldlist*/
-      generationfieldlist = l->next;
-      for(ll=l->next; ll; ll = ll->next)
-      {
-        if ( ll->word->word[0] == '+' )
-        {
+          /* Count screenfieldlist */
+          screenfieldlist = l->next;
+          for (ll = l->next; ll; ll = ll->next)
+            {
+              if (ll->word->word[0] == '+')
+                {
+                  l = ll;
+                  goto next;
+                }
+              else
+                screenfieldcount++;
+              if ((FIELDSPEC *) 0 == fieldspec_search (ll->word->word))
+                {
+                  builtin_error ("%s: Invalid field name", ll->word->word);
+                  goto usage_error;
+                }
+            }
           l = ll;
-          goto next;
         }
-        else
-          generationfieldcount++;
-        if ( (FIELDSPEC *)0 == fieldspec_search(ll->word->word) )
+      else if (strcmp ("+generationfieldlist", l->word->word) == 0)
         {
-          builtin_error ("%s: Invalid field name", ll->word->word); \
-          goto usage_error;
+          /* Count generationfieldlist */
+          generationfieldlist = l->next;
+          for (ll = l->next; ll; ll = ll->next)
+            {
+              if (ll->word->word[0] == '+')
+                {
+                  l = ll;
+                  goto next;
+                }
+              else
+                generationfieldcount++;
+              if ((FIELDSPEC *) 0 == fieldspec_search (ll->word->word))
+                {
+                  builtin_error ("%s: Invalid field name", ll->word->word);
+                  goto usage_error;
+                }
+            }
+          l = ll;
         }
-      }
-      l = ll;
-    }
-    else if (strncmp("+displaylevel=", l->word->word,
-      strlen("+displaylevel=")) == 0)
-    {
-      break;
-    }
-    else
-    {
-      printf("Not recognised %s\n", l->word->word);
-    }
-    l = l->next;
-next:
-    ;
+      else if (strncmp ("+displaylevel=", l->word->word,
+                        strlen ("+displaylevel=")) == 0)
+        {
+          break;
+        }
+      else
+        {
+          printf ("Not recognised %s\n", l->word->word);
+        }
+      l = l->next;
+    next:
+      ;
 
-  }
+    }
   /* Progress list pointer */
   *list = l;
 
   /* Check that every screen list entry has a generation list entry */
-  if ( generationfieldlist != (WORD_LIST *)0 )
-  {
-    if ( screenfieldcount != generationfieldcount)
+  if (generationfieldlist != (WORD_LIST *) 0)
     {
-      builtin_error (": screen field count (%d) != generation field count (%d)", screenfieldcount, generationfieldcount);
-      goto usage_error;
+      if (screenfieldcount != generationfieldcount)
+        {
+          builtin_error
+            (": screen field count (%d) != generation field count (%d)",
+             screenfieldcount, generationfieldcount);
+          goto usage_error;
+        }
+      for (i = 0, ll = screenfieldlist; i < screenfieldcount;
+           i++, ll = ll->next)
+        {
+          for (j = 0, lll = generationfieldlist; j < generationfieldcount;
+               j++, lll = lll->next)
+            {
+              if (0 == strcmp (ll->word->word, lll->word->word))
+                break;
+            }
+          if (lll == (WORD_LIST *) 0)
+            {
+              builtin_error ("%s: screen list item not in generation list ",
+                             ll->word->word);
+              goto usage_error;
+            }
+        }
     }
-    for (i=0, ll=screenfieldlist; i<screenfieldcount; i++, ll= ll->next)
-    {
-      for (j=0, lll=generationfieldlist; j<generationfieldcount; j++, lll= lll->next)
-      {
-        if ( 0 ==  strcmp( ll->word->word, lll->word->word) )
-          break;
-      }
-      if ( lll == (WORD_LIST *)0)
-      {
-        builtin_error ("%s: screen list item not in generation list ", ll->word->word);
-        goto usage_error;
-      }
-    }
-  }
   /* If we get here, we need to build a displaylevel and add it for each
      remaining argument. */
   dl = displaylevel_create ();
   dl->displaylevel = displaylevelname;
 
- /* Allocate space for field lists */
-  dl->screenfieldlist = (FORMFIELDSPEC **)xmalloc (sizeof(FORMFIELDSPEC *) * (screenfieldcount + 1 ));
-  memset(dl->screenfieldlist, 0, sizeof(FORMFIELDSPEC *) * (screenfieldcount + 1 ));
-  dl->generationfieldlist = (FORMFIELDSPEC **)xmalloc (sizeof(FORMFIELDSPEC *) * (generationfieldcount + 1 ));
-  memset(dl->generationfieldlist, 0, sizeof(FORMFIELDSPEC *) * (generationfieldcount + 1 ));
+  /* Allocate space for field lists */
+  dl->screenfieldlist =
+    (FORMFIELDSPEC **) xmalloc (sizeof (FORMFIELDSPEC *) *
+                                (screenfieldcount + 1));
+  memset (dl->screenfieldlist, 0,
+          sizeof (FORMFIELDSPEC *) * (screenfieldcount + 1));
+  dl->generationfieldlist =
+    (FORMFIELDSPEC **) xmalloc (sizeof (FORMFIELDSPEC *) *
+                                (generationfieldcount + 1));
+  memset (dl->generationfieldlist, 0,
+          sizeof (FORMFIELDSPEC *) * (generationfieldcount + 1));
 
-  for (i=0, ll=screenfieldlist; i<screenfieldcount; i++, ll= ll->next)
-  {
-    dl->screenfieldlist[i]= (FORMFIELDSPEC *)xmalloc(sizeof(FORMFIELDSPEC));
-    dl->screenfieldlist[i]->fieldspec= fieldspec_search(ll->word->word);
-    dl->screenfieldlist[i]->fieldspecname= savestring(ll->word->word);
-    dl->screenfieldlist[i]->crosslink= 0;
-    fieldspec_retain(dl->screenfieldlist[i]->fieldspec);
-    if ( generationfieldcount == 0)
+  for (i = 0, ll = screenfieldlist; i < screenfieldcount; i++, ll = ll->next)
     {
-      dl->generationfieldlist[i]= (FORMFIELDSPEC *)xmalloc(sizeof(FORMFIELDSPEC));
-      dl->generationfieldlist[i]->fieldspec= fieldspec_search(ll->word->word);
-      dl->generationfieldlist[i]->fieldspecname= savestring(ll->word->word);
-      dl->generationfieldlist[i]->crosslink= 0;
+      dl->screenfieldlist[i] =
+        (FORMFIELDSPEC *) xmalloc (sizeof (FORMFIELDSPEC));
+      dl->screenfieldlist[i]->fieldspec = fieldspec_search (ll->word->word);
+      dl->screenfieldlist[i]->fieldspecname = savestring (ll->word->word);
+      dl->screenfieldlist[i]->crosslink = 0;
+      fieldspec_retain (dl->screenfieldlist[i]->fieldspec);
+      if (generationfieldcount == 0)
+        {
+          dl->generationfieldlist[i] =
+            (FORMFIELDSPEC *) xmalloc (sizeof (FORMFIELDSPEC));
+          dl->generationfieldlist[i]->fieldspec =
+            fieldspec_search (ll->word->word);
+          dl->generationfieldlist[i]->fieldspecname =
+            savestring (ll->word->word);
+          dl->generationfieldlist[i]->crosslink = 0;
+        }
     }
-  }
-  dl->screenfieldlist[screenfieldcount] = (FORMFIELDSPEC *)0;
+  dl->screenfieldlist[screenfieldcount] = (FORMFIELDSPEC *) 0;
 
-  if ( generationfieldcount != 0)
-    for (i=0, ll=generationfieldlist; i<generationfieldcount; i++, ll= ll->next)
-    {
-      dl->generationfieldlist[i]= (FORMFIELDSPEC *)xmalloc(sizeof(FORMFIELDSPEC));
-      dl->generationfieldlist[i]->fieldspec= fieldspec_search(ll->word->word);
-      dl->generationfieldlist[i]->fieldspecname= savestring(ll->word->word);
-      dl->generationfieldlist[i]->crosslink= 0;
-    }
-  dl->generationfieldlist[screenfieldcount] = (FORMFIELDSPEC *)0;
+  if (generationfieldcount != 0)
+    for (i = 0, ll = generationfieldlist; i < generationfieldcount;
+         i++, ll = ll->next)
+      {
+        dl->generationfieldlist[i] =
+          (FORMFIELDSPEC *) xmalloc (sizeof (FORMFIELDSPEC));
+        dl->generationfieldlist[i]->fieldspec =
+          fieldspec_search (ll->word->word);
+        dl->generationfieldlist[i]->fieldspecname =
+          savestring (ll->word->word);
+        dl->generationfieldlist[i]->crosslink = 0;
+      }
+  dl->generationfieldlist[screenfieldcount] = (FORMFIELDSPEC *) 0;
   dl->fieldcount = screenfieldcount;
 
   /* Cross link screen and generation lists */
-  for ( i = 0; i < screenfieldcount; i++)
-  {
-    /* Look for match generation field by matching fieldspec */
-    for ( j=0; j< screenfieldcount; j++)
+  for (i = 0; i < screenfieldcount; i++)
     {
-      if ( dl->screenfieldlist[i]->fieldspec
-        == dl->generationfieldlist[j]->fieldspec )
-      {
-        /* If generation field list entry not linked */
-        if ( dl->generationfieldlist[j]->crosslink == 0)
+      /* Look for match generation field by matching fieldspec */
+      for (j = 0; j < screenfieldcount; j++)
         {
-          /* Cross link field list entries */
-          dl->generationfieldlist[j]->crosslink = dl->screenfieldlist[i];
-          dl->screenfieldlist[i]->crosslink = dl->generationfieldlist[j];
-          break;
+          if (dl->screenfieldlist[i]->fieldspec
+              == dl->generationfieldlist[j]->fieldspec)
+            {
+              /* If generation field list entry not linked */
+              if (dl->generationfieldlist[j]->crosslink == 0)
+                {
+                  /* Cross link field list entries */
+                  dl->generationfieldlist[j]->crosslink =
+                    dl->screenfieldlist[i];
+                  dl->screenfieldlist[i]->crosslink =
+                    dl->generationfieldlist[j];
+                  break;
+                }
+              /* Otherwise look for next match ie duplicate fieldspecs */
+            }
         }
-        /* Otherwise look for next match ie duplicate fieldspecs */
-      }
-    }
-    if ( j == screenfieldcount)
-    {
-    /* OUCH - deep error */
+      if (j == screenfieldcount)
+        {
+          /* OUCH - deep error */
 
-      builtin_error ("%s: Fields in screenfieldlist and generationfieldlist do no match (unmatch duplicate)",
-          dl->screenfieldlist[i]->fieldspecname);
-      goto usage_error;
+          builtin_error
+            ("%s: Fields in screenfieldlist and generationfieldlist do no match (unmatch duplicate)",
+             dl->screenfieldlist[i]->fieldspecname);
+          goto usage_error;
+        }
     }
-  }
   *displaylevel = dl;
 
 
@@ -719,8 +747,8 @@ next:
 
 usage_error:
   if (dl)
-  	displaylevel_dispose(dl);
-  builtin_usage();
+    displaylevel_dispose (dl);
+  builtin_usage ();
   return EX_USAGE;
 }
 
@@ -768,8 +796,8 @@ $END
 
 /* Add, remove, and display form specifiers. */
 int
-formspec_builtin(list)
-  WORD_LIST *list;
+formspec_builtin (list)
+     WORD_LIST *list;
 {
   int rval;
   FORMSPEC *fs;
@@ -781,14 +809,14 @@ formspec_builtin(list)
   char *displaylevelname;
   DISPLAYLEVEL *displaylevel;
 
-  int pflag= 0;
-  int rflag= 0;
-  
+  int pflag = 0;
+  int rflag = 0;
+
   int displaylevelcount = 0;
-  
+
   int i;
   int j;
-  
+
 
   command = NULL;
   formname = NULL;
@@ -798,122 +826,127 @@ formspec_builtin(list)
       formspec_printall ();
       return (EXECUTION_SUCCESS);
     }
-    
+
   /* formspec -p <formspec name> ... */
-  if ( strcmp("-p", list->word->word) == 0)
-  {
-    l = list->next;
-    if (l == 0)
+  if (strcmp ("-p", list->word->word) == 0)
     {
-      formspec_printall ();
-      return (EXECUTION_SUCCESS);
-    }
-    else
-      return (formspec_printlist (l));
-    
-  }
-  /* formspec -r <formspec name > ... */
-  else if ( strcmp("-r", list->word->word) == 0)
-  {
-    l = list->next;
-    if (l == 0)
-    {
-      formspecs_flush ();
-      return (EXECUTION_SUCCESS);
-    }
-    else
-      return (formspec_removeall (l));
-  }
-  else
-  {
-
-    for (l = list; l; )
-    {
-      if ( strncmp("+displaylevel", l->word->word,
-          strlen("+displaylevel")) == 0)
-      {
-        if (strchr(l->word->word, '=') == 0)
+      l = list->next;
+      if (l == 0)
         {
-          builtin_error (": displaylevel requires name (+displaylevel=<name>)");
-          builtin_usage ();
-          return (EX_USAGE);
+          formspec_printall ();
+          return (EXECUTION_SUCCESS);
         }
-        displaylevelcount++;
-      }
-      CHECKFORSTRINGARG("+command", command)
-      CHECKFORSTRINGARG("+formname", formname)
       else
-      {
-    	builtin_error (": did not recognise %s", l->word->word);
-      }
-      l = l->next;
-next:
-      ;
+        return (formspec_printlist (l));
 
     }
-  }
+  /* formspec -r <formspec name > ... */
+  else if (strcmp ("-r", list->word->word) == 0)
+    {
+      l = list->next;
+      if (l == 0)
+        {
+          formspecs_flush ();
+          return (EXECUTION_SUCCESS);
+        }
+      else
+        return (formspec_removeall (l));
+    }
+  else
+    {
 
-  if (formname == 0 )
-  {
-    builtin_error("no formname");
-    builtin_usage ();
-    return (EX_USAGE);
-  }
+      for (l = list; l;)
+        {
+          if (strncmp ("+displaylevel", l->word->word,
+                       strlen ("+displaylevel")) == 0)
+            {
+              if (strchr (l->word->word, '=') == 0)
+                {
+                  builtin_error
+                    (": displaylevel requires name (+displaylevel=<name>)");
+                  builtin_usage ();
+                  return (EX_USAGE);
+                }
+              displaylevelcount++;
+            }
+          CHECKFORSTRINGARG ("+command", command)
+            CHECKFORSTRINGARG ("+formname", formname)
+          else
+            {
+              builtin_error (": did not recognise %s", l->word->word);
+            }
+          l = l->next;
+        next:
+          ;
+
+        }
+    }
+
+  if (formname == 0)
+    {
+      builtin_error ("no formname");
+      builtin_usage ();
+      return (EX_USAGE);
+    }
 
   /* If we get here, we need to build a formspec and add it for each
      remaining argument. */
   fs = formspec_create ();
-   
+
   fs->displaylevelcount = displaylevelcount;
-  fs->displaylevels = (DISPLAYLEVEL **)xmalloc(sizeof(DISPLAYLEVEL *) * (displaylevelcount + 1 ));
+  fs->displaylevels =
+    (DISPLAYLEVEL **) xmalloc (sizeof (DISPLAYLEVEL *) *
+                               (displaylevelcount + 1));
 
   i = 0;
-  for (l = list; l; )
-  {
-    if (strncmp("+displaylevel=", l->word->word,
-        strlen("+displaylevel=")) == 0)
+  for (l = list; l;)
     {
-      if (strchr(l->word->word, '=') == 0)
-      {
-        builtin_error (": displaylevel requires name (+displaylevel=<name>)");
-        builtin_usage ();
-        return (EX_USAGE);
-      }
-      displaylevelname = STRDUP(strchr(l->word->word, '=') + 1);
-      l = l->next;
-      rval = build_displaylevel(displaylevelname, &displaylevel, &l);
-      if (rval  == EXECUTION_SUCCESS)
-      {
-      	fs->displaylevels[i++] = displaylevel;
-      }
+      if (strncmp ("+displaylevel=", l->word->word,
+                   strlen ("+displaylevel=")) == 0)
+        {
+          if (strchr (l->word->word, '=') == 0)
+            {
+              builtin_error
+                (": displaylevel requires name (+displaylevel=<name>)");
+              builtin_usage ();
+              return (EX_USAGE);
+            }
+          displaylevelname = STRDUP (strchr (l->word->word, '=') + 1);
+          l = l->next;
+          rval = build_displaylevel (displaylevelname, &displaylevel, &l);
+          if (rval == EXECUTION_SUCCESS)
+            {
+              fs->displaylevels[i++] = displaylevel;
+            }
+          else
+            return rval;
+        }
       else
-        return rval;
+        {
+          l = l->next;
+        }
     }
-    else
-    {
-    	l = l->next;
-    }
-  }
   if (i != displaylevelcount)
-  {
-        /* XXXXX internal error */
-        builtin_error (": unexpected number of display levels %d expected %d", i, displaylevelcount);
-        builtin_usage ();
-        return (EX_USAGE);
-  }
+    {
+      /* XXXXX internal error */
+      builtin_error (": unexpected number of display levels %d expected %d",
+                     i, displaylevelcount);
+      builtin_usage ();
+      return (EX_USAGE);
+    }
   fs->displaylevels[i] = NULL;
 
   fs->command = command;
 
 
   if (formspec_insert (formname, fs) == 0)
-       rval = EXECUTION_FAILURE;
+    rval = EXECUTION_FAILURE;
 
   return (rval);
 
 usage_error:
-  formspec_dispose(fs);
-  builtin_usage();
+  formspec_dispose (fs);
+  builtin_usage ();
   return EX_USAGE;
 }
 
@@ -962,7 +995,7 @@ $END
  */
 int
 form_builtin (list)
-  WORD_LIST *list;
+     WORD_LIST *list;
 {
   int rval;
   FORMSPEC *form;
@@ -986,244 +1019,249 @@ form_builtin (list)
   if (list == 0)
     return (EXECUTION_SUCCESS);
 
-  if ( ! interactive )
-  {
-    builtin_error ("%s: Can only be run interactive", l->word->word);
-    return(EXECUTION_FAILURE);
-  }
+  if (!interactive)
+    {
+      builtin_error ("%s: Can only be run interactive", l->word->word);
+      return (EXECUTION_FAILURE);
+    }
 
   cf_edit_mode = CF_MODE_FORM;
   cf_execution_mode = CF_MODE_DISPLAY;
 
-  for (l = list; l; )
-  {
-    if ( strcmp(l->word->word, "-l") == 0)
-      cf_edit_mode = CF_MODE_LINE;
-    else if ( strcmp(l->word->word, "-x") == 0)
-      cf_execution_mode = CF_MODE_EXECUTE;
-    else if ( l->word->word[0] != '-' )
-      break;
-    l = l->next;
-  }
-  
+  for (l = list; l;)
+    {
+      if (strcmp (l->word->word, "-l") == 0)
+        cf_edit_mode = CF_MODE_LINE;
+      else if (strcmp (l->word->word, "-x") == 0)
+        cf_execution_mode = CF_MODE_EXECUTE;
+      else if (l->word->word[0] != '-')
+        break;
+      l = l->next;
+    }
+
   form_name = l->word->word;
-  form= formspec_search (form_name);
-  
+  form = formspec_search (form_name);
+
   /* TODO If form not loaded then search form path and load form */
 
   /* Use form specification */
   if (form)
-  {
-    /* Instansiate screenform */
-    screenform = screenform_init(form, form->displaylevels[0], form_name);
+    {
+      /* Instansiate screenform */
+      screenform = screenform_init (form, form->displaylevels[0], form_name);
 
-    /* Layout form */
-    screenform_layout(screenform);
+      /* Layout form */
+      screenform_layout (screenform);
 
-    /* Parse the remaining arguments to populate field values */
-    screenform_populatefieldsfrompartialcommand(screenform, l);
-  
-    /* Draw the form and position to first field */
-    screenform_draw(screenform);
+      /* Parse the remaining arguments to populate field values */
+      screenform_populatefieldsfrompartialcommand (screenform, l);
 
-    /* Go to first field */
-    screenform_gotofield(screenform, screenform->screenfields, cf_edit_mode);
+      /* Draw the form and position to first field */
+      screenform_draw (screenform);
 
-    /* Length of command plus space plus null */
-    commandlength = strlen(form->command) + 2;
-    
-    /* Set global variable that will allow the 
-      form navigation to be captured in the form edit code in readline */
-    cf_screenform = screenform;
+      /* Go to first field */
+      screenform_gotofield (screenform, screenform->screenfields,
+                            cf_edit_mode);
 
-    /* Loop through fields */
+      /* Length of command plus space plus null */
+      commandlength = strlen (form->command) + 2;
+
+      /* Set global variable that will allow the 
+         form navigation to be captured in the form edit code in readline */
+      cf_screenform = screenform;
+
+      /* Loop through fields */
       suppress_hint = 0;
-      while ( 1 )
-      {
-        field = screenform->currentscreenfield->fieldspec;
-
-        /* Default next navigation to next field */
-        screenform->nextnavigation = CF_RETURN;
-        
-        /* Display hint text */
-        if ( ! suppress_hint)
-          screenform_displayhinttext(screenform, cf_edit_mode);
-
-        /* Edit the field */
-        screenform_editscreenfield(screenform, cf_edit_mode);
-        screenform->currenty++;
-
-        /* Note:
-          Keystroke functions in called from readline/form_mode.c use the gobal
-          cf_screenform to set "nextnavigation".
-          This use of side effects is to avoid changing the main
-          call of "readline". */
-
-        switch (screenform->nextnavigation)
+      while (1)
         {
-        case CF_NO_NAVIGATION:
-          screenform_gotofield(screenform, screenform->currentscreenfield, cf_edit_mode);
-          break;
+          field = screenform->currentscreenfield->fieldspec;
 
-        case CF_REDRAW:
-          /* Redraw form */
-          /* Go past end of current form */
-          while( (screenform->currenty)++ < screenform->height )
-            rl_crlf();
+          /* Default next navigation to next field */
+          screenform->nextnavigation = CF_RETURN;
 
-          rl_crlf();
-          
-          /* Cycle display level */
-          for (displaylevel = screenform->formspec->displaylevels; *displaylevel != 0; displaylevel++)
-          {
-            if (*displaylevel == screenform->displaylevel)
+          /* Display hint text */
+          if (!suppress_hint)
+            screenform_displayhinttext (screenform, cf_edit_mode);
+
+          /* Edit the field */
+          screenform_editscreenfield (screenform, cf_edit_mode);
+          screenform->currenty++;
+
+          /* Note:
+             Keystroke functions in called from readline/form_mode.c use the gobal
+             cf_screenform to set "nextnavigation".
+             This use of side effects is to avoid changing the main
+             call of "readline". */
+
+          switch (screenform->nextnavigation)
             {
-              displaylevel++;
+            case CF_NO_NAVIGATION:
+              screenform_gotofield (screenform,
+                                    screenform->currentscreenfield,
+                                    cf_edit_mode);
               break;
-            }
-          }
-          if ( *displaylevel == 0)
-            displaylevel = screenform->formspec->displaylevels;
 
-          /* Re-layout and draw form */
-          screenform_dispose(screenform);
-          screenform = screenform_init(form, *displaylevel, form_name);
-          cf_screenform = screenform;
-          
-          screenform_layout(screenform);
-          screenform_populatefieldsfrompartialcommand(screenform, l);
-          screenform_draw(screenform);
+            case CF_REDRAW:
+              /* Redraw form */
+              /* Go past end of current form */
+              while ((screenform->currenty)++ < screenform->height)
+                rl_crlf ();
 
-          /* Go to first field */
-          screenform_gotofield(screenform, screenform->screenfields, cf_edit_mode);
-          break;
+              rl_crlf ();
 
-        case CF_RETURN:
-          /* Move to next field or 
-            if last field or 
-            last positional field complete form */
-          if ( screenform->currentscreenfield <
-            ((screenform->fieldcount-1) + screenform->screenfields)
-            && (screenform->currentscreenfield
-                ->fieldspec->fieldtype != CF_FIELD_TYPE_LAST &&
-              screenform->currentscreenfield
-                ->fieldspec->fieldtype != CF_FIELD_TYPE_REST ) )
-            {
-              if ( 0 == screenform_gotonextfield(screenform, cf_edit_mode) )
+              /* Cycle display level */
+              for (displaylevel = screenform->formspec->displaylevels;
+                   *displaylevel != 0; displaylevel++)
+                {
+                  if (*displaylevel == screenform->displaylevel)
+                    {
+                      displaylevel++;
+                      break;
+                    }
+                }
+              if (*displaylevel == 0)
+                displaylevel = screenform->formspec->displaylevels;
+
+              /* Re-layout and draw form */
+              screenform_dispose (screenform);
+              screenform = screenform_init (form, *displaylevel, form_name);
+              cf_screenform = screenform;
+
+              screenform_layout (screenform);
+              screenform_populatefieldsfrompartialcommand (screenform, l);
+              screenform_draw (screenform);
+
+              /* Go to first field */
+              screenform_gotofield (screenform, screenform->screenfields,
+                                    cf_edit_mode);
+              break;
+
+            case CF_RETURN:
+              /* Move to next field or 
+                 if last field or 
+                 last positional field complete form */
+              if (screenform->currentscreenfield <
+                  ((screenform->fieldcount - 1) + screenform->screenfields)
+                  && (screenform->currentscreenfield->fieldspec->fieldtype !=
+                      CF_FIELD_TYPE_LAST
+                      && screenform->currentscreenfield->
+                      fieldspec->fieldtype != CF_FIELD_TYPE_REST))
+                {
+                  if (0 ==
+                      screenform_gotonextfield (screenform, cf_edit_mode))
+                    goto complete;
+                }
+              else
+                /* Last field */
                 goto complete;
+              break;
+
+            case CF_NEXT_FIELD:
+              /* Navigate to next field */
+              if (0 == screenform_gotonextfield (screenform, cf_edit_mode))
+                {
+                  /* already on last field */
+                  suppress_hint = 1;
+                  continue;
+                }
+              break;
+            case CF_PREVIOUS_FIELD:
+              /* If not on field field move to previous field */
+              screenform_gotopreviousfield (screenform, cf_edit_mode);
+              break;
+
+            case CF_ENTER:
+            case CF_ESCAPE:
+              goto complete;
+              break;
+
             }
-          else
-            /* Last field */
-            goto complete;
-          break;
-
-        case CF_NEXT_FIELD:
-          /* Navigate to next field */
-          if (0 == screenform_gotonextfield(screenform, cf_edit_mode))
-          {
-          	/* already on last field */
-          	suppress_hint = 1;
-          	continue;
-          }
-          break;
-        case CF_PREVIOUS_FIELD:
-          /* If not on field field move to previous field */
-          screenform_gotopreviousfield(screenform, cf_edit_mode);
-          break;
-
-        case CF_ENTER:
-        case CF_ESCAPE:
-          goto complete;
-          break;
-        
+          suppress_hint = 0;
         }
-        suppress_hint = 0;
-      }
 
-  complete: 
+    complete:
 
       /* Go to last line */
-      if ( cf_edit_mode != CF_MODE_LINE )
+      if (cf_edit_mode != CF_MODE_LINE)
         {
-        while( (screenform->currenty)++ < screenform->height )
-          rl_crlf();
+          while ((screenform->currenty)++ < screenform->height)
+            rl_crlf ();
         }
 
       /* Construct command string */
 
       /* 1. Determine command length */
-      for(fieldlist=screenform->displaylevel->generationfieldlist; *fieldlist; fieldlist++)
-      {
-        field = (*fieldlist)->fieldspec;
-        screenfield = (*fieldlist)->screenfield;
-        commandlength += screenfield_generatedargumentlength(screenfield) ;
-      }
+      for (fieldlist = screenform->displaylevel->generationfieldlist;
+           *fieldlist; fieldlist++)
+        {
+          field = (*fieldlist)->fieldspec;
+          screenfield = (*fieldlist)->screenfield;
+          commandlength += screenfield_generatedargumentlength (screenfield);
+        }
 
       /* 2. Start with command name */
 
-      command = xmalloc((unsigned int)commandlength);
+      command = xmalloc ((unsigned int) commandlength);
       cp = command;
-      ip =  form->command;
-      while ( (*cp++ = *ip++) ) ;
+      ip = form->command;
+      while ((*cp++ = *ip++));
       cp--;
       *cp++ = ' ';
-      
+
       /* 3. loop through the generate field list to construct command arguments */
       prevfield = field;
-      for(fieldlist=screenform->displaylevel->generationfieldlist; *fieldlist; fieldlist++)
-      {
-        field = (*fieldlist)->fieldspec;
-        screenfield = (*fieldlist)->screenfield;
-        argument =  screenfield_generateargument(screenfield);
-        
-        if ( argument )
+      for (fieldlist = screenform->displaylevel->generationfieldlist;
+           *fieldlist; fieldlist++)
         {
-          /* If a separator is defined and it is the 
-             same as the separator of the previous field */
-          if ( field->separator 
-              && prevfield && prevfield->separator
-              && strcmp(prevfield->separator,
-                     field->separator) == 0)
-          {
-              ip = field->separator;
-              while ((*cp++ = *ip++) ) ;
-              cp --;
-          }
-          else
-            *cp++ = ' ';
-          ip = argument;
-          while ( (*cp++ = *ip++) ) ;
-          cp--;
-          free(argument);
-          prevfield = field;
+          field = (*fieldlist)->fieldspec;
+          screenfield = (*fieldlist)->screenfield;
+          argument = screenfield_generateargument (screenfield);
+
+          if (argument)
+            {
+              /* If a separator is defined and it is the 
+                 same as the separator of the previous field */
+              if (field->separator
+                  && prevfield && prevfield->separator
+                  && strcmp (prevfield->separator, field->separator) == 0)
+                {
+                  ip = field->separator;
+                  while ((*cp++ = *ip++));
+                  cp--;
+                }
+              else
+                *cp++ = ' ';
+              ip = argument;
+              while ((*cp++ = *ip++));
+              cp--;
+              free (argument);
+              prevfield = field;
+            }
         }
-      }
-      *cp  = '\0';
+      *cp = '\0';
       /* Note that command already null terminated */
 
       cf_screenform = NULL;
-      screenform_dispose(screenform);
-      
-      rl_crlf();
-      if ( cf_execution_mode == CF_MODE_DISPLAY)
-      {
-        bash_re_edit(command);
-        free(command);
-      }
-      else if ( cf_execution_mode == CF_MODE_EXECUTE)
-      {
-        /* Execute the command */
-        fprintf(stderr, "%s\n", command);
-        return parse_and_execute(command, "form", 0 );
-      }
-        
-  }
+      screenform_dispose (screenform);
+
+      rl_crlf ();
+      if (cf_execution_mode == CF_MODE_DISPLAY)
+        {
+          bash_re_edit (command);
+          free (command);
+        }
+      else if (cf_execution_mode == CF_MODE_EXECUTE)
+        {
+          /* Execute the command */
+          fprintf (stderr, "%s\n", command);
+          return parse_and_execute (command, "form", 0);
+        }
+
+    }
   else
-  {
-    printf("Cannot find form '%s'\n", l->word->word);
-  }
+    {
+      printf ("Cannot find form '%s'\n", l->word->word);
+    }
   rval = EXECUTION_SUCCESS;
   return (rval);
 }
-
-

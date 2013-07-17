@@ -60,7 +60,7 @@ LDFLAGS = @LDFLAGS@
 DEFS = @DEFS@
 LOCAL_DEFS = @LOCAL_DEFS@
 
-INCLUDES = -I. -I$(BUILD_DIR) -I$(topdir) -I$(topdir)/lib
+INCLUDES = -I. -I$(BUILD_DIR) -I$(topdir) -I$(topdir)/lib -I$(topdir)/include
 
 CCFLAGS = $(DEFS) $(LOCAL_DEFS) $(APP_CFLAGS) $(CPPFLAGS) ${INCLUDES} $(LOCAL_CFLAGS) $(CFLAGS)
 
@@ -139,7 +139,7 @@ distclean maintainer-clean: clean
 	$(RM) TAGS tags
 
 # Dependencies
-commandformlib.o: commandforms.h shell.h pcomplete.h 
+commandformlib.o: commandforms.h ../../shell.h ../../pcomplete.h 
 
 # Rules for deficient makes, like SunOS and Solaris
 commandformlib.o: commandformlib.c

@@ -27,7 +27,7 @@
 #include <stdio.h>
 
 #if defined (HAVE_UNISTD_H)
-#ifdef _MINIX
+#if defined (_MINIX)
 #include <sys/types.h>
 #endif
 #include <unistd.h>
@@ -35,9 +35,11 @@
 
 #include "shell.h"
 #include "pcomplete.h"
+
 #include "commandforms.h"
+
 #if defined (READLINE)
-#include "../bashline.h"
+#include "bashline.h"
 #include <readline/readline.h>
 #include <readline/tcap.h>
 #endif

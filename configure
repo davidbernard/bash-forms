@@ -2992,6 +2992,7 @@ if test $opt_minimal_config = yes; then
 	opt_net_redirs=no opt_progcomp=no opt_commanmdforms=no opt_separate_help=no
 	opt_multibyte=yes opt_cond_regexp=no opt_coproc=no
 	opt_casemod_attrs=no opt_casemod_expansions=no opt_extglob_default=no
+  opt_commandforms=no
 fi
 
 # Check whether --enable-alias was given.
@@ -15517,7 +15518,7 @@ case "$srcdir" in
 *)	for d in doc tests support lib examples; do	# dirs
 		test -d $d || mkdir $d
 	done
-	for ld in readline glob tilde malloc sh termcap; do	# libdirs
+	for ld in readline glob tilde commandformsmalloc sh termcap; do	# libdirs
 		test -d lib/$ld || mkdir lib/$ld
 	done
 	test -d examples/loadables || mkdir examples/loadables	# loadable builtins
@@ -15568,7 +15569,7 @@ fi
 #AC_SUBST(ALLOCA_SOURCE)
 #AC_SUBST(ALLOCA_OBJECT)
 
-ac_config_files="$ac_config_files Makefile builtins/Makefile lib/readline/Makefile lib/glob/Makefile lib/intl/Makefile lib/malloc/Makefile lib/sh/Makefile lib/termcap/Makefile lib/tilde/Makefile doc/Makefile support/Makefile po/Makefile.in examples/loadables/Makefile examples/loadables/perl/Makefile"
+ac_config_files="$ac_config_files Makefile builtins/Makefile lib/readline/Makefile lib/glob/Makefile lib/intl/Makefile lib/malloc/Makefile lib/sh/Makefile lib/termcap/Makefile lib/tilde/Makefile lib/commandforms/Makefile doc/Makefile support/Makefile po/Makefile.in examples/loadables/Makefile examples/loadables/perl/Makefile"
 
 ac_config_commands="$ac_config_commands default"
 
@@ -16289,6 +16290,7 @@ do
     "lib/sh/Makefile") CONFIG_FILES="$CONFIG_FILES lib/sh/Makefile" ;;
     "lib/termcap/Makefile") CONFIG_FILES="$CONFIG_FILES lib/termcap/Makefile" ;;
     "lib/tilde/Makefile") CONFIG_FILES="$CONFIG_FILES lib/tilde/Makefile" ;;
+    "lib/commandforms/Makefile") CONFIG_FILES="$CONFIG_FILES lib/commandforms/Makefile" ;;
     "doc/Makefile") CONFIG_FILES="$CONFIG_FILES doc/Makefile" ;;
     "support/Makefile") CONFIG_FILES="$CONFIG_FILES support/Makefile" ;;
     "po/Makefile.in") CONFIG_FILES="$CONFIG_FILES po/Makefile.in" ;;
