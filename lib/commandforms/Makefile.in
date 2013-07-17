@@ -1,0 +1,145 @@
+## -*- text -*- #############################################################
+#								            #
+# Makefile for the Bash versions of the command form library. #
+#								            #
+#############################################################################
+
+# Copyright (C) 2013 Free Software Foundation, Inc.
+
+#   This program is free software: you can redistribute it and/or modify
+#   it under the terms of the GNU General Public License as published by
+#   the Free Software Foundation, either version 3 of the License, or
+#   (at your option) any later version.
+
+#   This program is distributed in the hope that it will be useful,
+#   but WITHOUT ANY WARRANTY; without even the implied warranty of
+#   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#   GNU General Public License for more details.
+
+#   You should have received a copy of the GNU General Public License
+#   along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+PACKAGE = @PACKAGE_NAME@
+VERSION = @PACKAGE_VERSION@
+
+PACKAGE_BUGREPORT = @PACKAGE_BUGREPORT@
+PACKAGE_NAME = @PACKAGE_NAME@
+PACKAGE_STRING = @PACKAGE_STRING@
+PACKAGE_VERSION = @PACKAGE_VERSION@
+
+srcdir = @srcdir@
+VPATH = .:@srcdir@
+topdir = @top_srcdir@
+BUILD_DIR = @BUILD_DIR@
+
+datarootdir = @datarootdir@
+
+INSTALL = @INSTALL@
+INSTALL_PROGRAM = @INSTALL_PROGRAM@
+INSTALL_DATA = @INSTALL_DATA@
+
+CC = @CC@
+RANLIB = @RANLIB@
+AR = @AR@
+ARFLAGS = @ARFLAGS@
+RM = rm -f
+CP = cp
+MV = mv
+
+SHELL = @MAKE_SHELL@
+
+# Programs to make tags files.
+ETAGS = etags -tw
+CTAGS = ctags -tw
+
+CFLAGS = @CFLAGS@
+LOCAL_CFLAGS = @LOCAL_CFLAGS@
+CPPFLAGS = @CPPFLAGS@
+LDFLAGS = @LDFLAGS@
+
+DEFS = @DEFS@
+LOCAL_DEFS = @LOCAL_DEFS@
+
+INCLUDES = -I. -I$(BUILD_DIR) -I$(topdir) -I$(topdir)/lib
+
+CCFLAGS = $(DEFS) $(LOCAL_DEFS) $(APP_CFLAGS) $(CPPFLAGS) ${INCLUDES} $(LOCAL_CFLAGS) $(CFLAGS)
+
+.c.o:
+	${RM} $@
+	$(CC) -c $(CCFLAGS) $<
+
+# The name of the main library target.
+LIBRARY_NAME = libreadline.a
+
+# The C code source files for this library.
+CSOURCES = $(srcdir)/commandformlib.c 
+
+# The header files for this library.
+HSOURCES = readline.h rldefs.h chardefs.h keymaps.h history.h histlib.h \
+	   posixstat.h posixdir.h posixjmp.h tilde.h rlconf.h rltty.h \
+	   ansi_stdlib.h rlstdc.h tcap.h xmalloc.h rlprivate.h rlshell.h \
+	   rltypedefs.h rlmbutil.h
+
+HISTOBJ = history.o histexpand.o histfile.o histsearch.o shell.o savestring.o \
+	  mbutil.o
+TILDEOBJ = tilde.o
+OBJECTS = commandformlib.o
+
+# The texinfo files which document this library.
+DOCSOURCE = doc/rlman.texinfo doc/rltech.texinfo doc/rluser.texinfo
+DOCOBJECT = doc/readline.dvi
+DOCSUPPORT = doc/Makefile
+DOCUMENTATION = $(DOCSOURCE) $(DOCOBJECT) $(DOCSUPPORT)
+
+SUPPORT = Makefile ChangeLog $(DOCSUPPORT) examples/[-a-z.]*
+
+SOURCES  = $(CSOURCES) $(HSOURCES) $(DOCSOURCE)
+
+THINGS_TO_TAR = $(SOURCES) $(SUPPORT)
+
+INSTALLED_HEADERS = commandforms.h
+
+##########################################################################
+
+all: libcommandforms.a 
+
+libcommandforms.a: $(OBJECTS)
+	$(RM) $@
+	$(AR) $(ARFLAGS) $@ $(OBJECTS)
+	-test -n "$(RANLIB)" && $(RANLIB) $@
+
+documentation: force
+	test -d doc || mkdir doc
+	-( cd doc && $(MAKE) $(MFLAGS) )
+
+force:
+
+install:
+	@echo "This version of the commandforms library should not be installed."
+
+uninstall:
+	@echo "This version of the commandforms library should not be installed."
+
+TAGS:	force
+	$(ETAGS) $(CSOURCES) $(HSOURCES)
+
+tags:	force
+	$(CTAGS) $(CSOURCES) $(HSOURCES)
+
+clean:	force
+	$(RM) $(OBJECTS) *.a
+	-( cd doc && $(MAKE) $(MFLAGS) $@ )
+
+mostlyclean: clean
+	-( cd doc && $(MAKE) $(MFLAGS) $@ )
+
+distclean maintainer-clean: clean
+	-( cd doc && $(MAKE) $(MFLAGS) $@ )
+	$(RM) Makefile
+	$(RM) TAGS tags
+
+# Dependencies
+commandformlib.o: commandforms.h shell.h pcomplete.h 
+
+# Rules for deficient makes, like SunOS and Solaris
+commandformlib.o: commandformlib.c

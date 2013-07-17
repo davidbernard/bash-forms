@@ -351,6 +351,20 @@ INTL_INC = @INTL_INC@
 
 LIBINTL_H = @LIBINTL_H@
 
+# libcommandforms
+CF_LIBSRC = $(LIBSRC)/glob
+CF_LIBDIR = $(dot)/$(LIBSUBDIR)/glob
+CF_ABSSRC = ${topdir}/$(CF_LIBDIR)
+
+CF_LIB     = -lglob
+CF_LIBRARY = $(CF_LIBDIR)/libglob.a
+CF_LDFLAGS = -L$(CF_LIBDIR)
+CF_DEP = $(CF_LIBRARY)
+
+CF_SOURCE = $(CF_LIBSRC)/commandformlib.c \
+	      $(CF_LIBSRC)/commandforms.h 
+CF_OBJ    = $(CF_LIBDIR)/commandformlib.o 
+
 # libiconv
 LIBICONV = @LIBICONV@
 
@@ -401,13 +415,13 @@ BASHINCFILES =	 $(BASHINCDIR)/posixstat.h $(BASHINCDIR)/ansi_stdlib.h \
 		 $(BASHINCDIR)/ocache.h
 
 LIBRARIES = $(GLOB_LIB) $(SHLIB_LIB) $(READLINE_LIB) $(HISTORY_LIB) $(TERMCAP_LIB) \
-	    $(TILDE_LIB) $(MALLOC_LIB) $(INTL_LIB) $(LIBICONV) $(LOCAL_LIBS)
+	    $(TILDE_LIB) $(MALLOC_LIB) $(INTL_LIB) $(LIBICONV) $(CF_LIB) $(LOCAL_LIBS)
 
 LIBDEP = $(GLOB_DEP) $(SHLIB_DEP) $(INTL_DEP) $(READLINE_DEP) $(HISTORY_DEP) $(TERMCAP_DEP) \
-	 $(TILDE_DEP) $(MALLOC_DEP)
+	 $(TILDE_DEP) $(MALLOC_DEP) $(CF_DEP)
 
 LIBRARY_LDFLAGS = $(READLINE_LDFLAGS) $(HISTORY_LDFLAGS) $(GLOB_LDFLAGS) \
-		  $(TILDE_LDFLAGS) $(MALLOC_LDFLAGS) $(SHLIB_LDFLAGS)
+		  $(TILDE_LDFLAGS) $(MALLOC_LDFLAGS) $(SHLIB_LDFLAGS) $(CF_LDFLAGS)
 
 #
 # The shell itself
@@ -421,7 +435,7 @@ CSOURCES = shell.c eval.c parse.y general.c make_cmd.c print_cmd.c y.tab.c \
 	   input.c bashhist.c array.c arrayfunc.c assoc.c sig.c pathexp.c \
 	   unwind_prot.c siglist.c bashline.c bracecomp.c error.c \
 	   list.c stringlib.c locale.c findcmd.c redir.c \
-	   pcomplete.c pcomplib.c commandforms.c commandformlib.c syntax.c xmalloc.c
+	   pcomplete.c pcomplib.c syntax.c xmalloc.c
 
 HSOURCES = shell.h flags.h trap.h hashcmd.h hashlib.h jobs.h builtins.h \
 	   general.h variables.h config.h $(ALLOC_HEADERS) alias.h \
@@ -450,7 +464,7 @@ OBJECTS	 = shell.o eval.o y.tab.o general.o make_cmd.o print_cmd.o $(GLOBO) \
 	   trap.o input.o unwind_prot.o pathexp.o sig.o test.o version.o \
 	   alias.o array.o arrayfunc.o assoc.o braces.o bracecomp.o bashhist.o \
 	   bashline.o $(SIGLIST_O) list.o stringlib.o locale.o findcmd.o redir.o \
-	   pcomplete.o pcomplib.o commandforms.o commandformlib.o syntax.o xmalloc.o $(SIGNAMES_O)
+	   pcomplete.o pcomplib.o syntax.o xmalloc.o $(SIGNAMES_O)
 
 # Where the source code of the shell builtins resides.
 BUILTIN_SRCDIR=$(srcdir)/builtins
@@ -637,6 +651,11 @@ ${INTL_LIBRARY}: config.h ${INTL_LIBDIR}/Makefile
 
 ${LIBINTL_H}:	${INTL_DEP}
 
+$(CF_LIBRARY): config.h $(CF_SOURCE)
+	@echo making $@ in ${CF_LIBDIR}
+	@( { test "${CF_LIBDIR}" = "${libdir}" && exit 0; } || \
+		cd ${CF_LIBDIR} && $(MAKE) $(MFLAGS) DEBUG=${DEBUG} libcommandform.a) || exit 1
+
 signames.o: $(SUPPORT_SRC)signames.c
 	$(RM) $@
 	$(CC) $(CCFLAGS) -c $(SUPPORT_SRC)signames.c
@@ -774,7 +793,7 @@ uninstall:	.made
 .PHONY: basic-clean clean realclean maintainer-clean distclean mostlyclean maybe-clean
 
 LIB_SUBDIRS = ${RL_LIBDIR}  ${HIST_LIBDIR} ${TERM_LIBDIR} ${GLOB_LIBDIR} \
-		${INTL_LIBDIR} ${TILDE_LIBDIR} ${ALLOC_LIBDIR} ${SH_LIBDIR}
+		${INTL_LIBDIR} ${TILDE_LIBDIR} ${ALLOC_LIBDIR} ${SH_LIBDIR} ${CF_LIBDIR}
 
 basic-clean:
 	$(RM) $(OBJECTS) $(Program) bashbug
