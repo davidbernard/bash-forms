@@ -1933,11 +1933,15 @@ screenform_layout (screenform)
   int rows;
   int cols;
 
-
+  if (screenform->fieldcount == 0)
+    {
+	  return;
+    }
 
   /* Get size of screen */
 
   rl_get_screen_size (&rows, &cols);
+  y = 0;
 
   /* Layout form */
 
@@ -1966,7 +1970,6 @@ screenform_layout (screenform)
 
   screenform->maxlabelwidth = maxlabelwidth;
   /* 2. Layout each field  - right align field labels */
-  y = 0;
   for (fieldlist = screenform->displaylevel->screenfieldlist, screenfield =
        screenform->screenfields; *fieldlist; fieldlist++, screenfield++)
     {

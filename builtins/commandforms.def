@@ -253,16 +253,16 @@ fieldspec_builtin (list)
               break;
             }
 #define CHECKFORSTRINGARG(arg, variable)\
-     else if ( strcmp(arg, l->word->word) == 0) \
+     else if (strcmp (arg, l->word->word) == 0) \
      { \
        if ( l->next) \
        { \
-         variable = savestring(l->next->word->word); \
+         variable = savestring (l->next->word->word); \
          l = l->next; \
        } \
        else \
        { \
-         builtin_error ("%s: invalid action name", list_optarg); \
+         builtin_error ("%s: missing argument", list_optarg); \
          goto usage_error; \
        } \
      }
@@ -616,9 +616,10 @@ build_displaylevel (displaylevelname, displaylevel, list)
         {
           break;
         }
-      else
+      else if (strcmp ("+command", l->word->word) == 0 ||
+               strcmp ("+formname", l->word->word) == 0)
         {
-          printf ("Not recognised %s\n", l->word->word);
+          break;
         }
       l = l->next;
     next:
@@ -854,7 +855,7 @@ formspec_builtin (list)
     }
   else
     {
-
+      /* Count the display levels */
       for (l = list; l;)
         {
           if (strncmp ("+displaylevel", l->word->word,
@@ -871,10 +872,6 @@ formspec_builtin (list)
             }
           CHECKFORSTRINGARG ("+command", command)
             CHECKFORSTRINGARG ("+formname", formname)
-          else
-            {
-              builtin_error (": did not recognise %s", l->word->word);
-            }
           l = l->next;
         next:
           ;
@@ -1028,7 +1025,7 @@ form_builtin (list)
   cf_edit_mode = CF_MODE_FORM;
   cf_execution_mode = CF_MODE_DISPLAY;
 
-  for (l = list; l;)
+  for (l = list; l; l = l->next)
     {
       if (strcmp (l->word->word, "-l") == 0)
         cf_edit_mode = CF_MODE_LINE;
@@ -1036,7 +1033,6 @@ form_builtin (list)
         cf_execution_mode = CF_MODE_EXECUTE;
       else if (l->word->word[0] != '-')
         break;
-      l = l->next;
     }
 
   form_name = l->word->word;
@@ -1047,6 +1043,10 @@ form_builtin (list)
   /* Use form specification */
   if (form)
     {
+      /* If no display levels do not display form */
+      if (form->displaylevelcount == 0)
+        return (EXECUTION_SUCCESS);
+        
       /* Instansiate screenform */
       screenform = screenform_init (form, form->displaylevels[0], form_name);
 
@@ -1254,14 +1254,17 @@ form_builtin (list)
         {
           /* Execute the command */
           fprintf (stderr, "%s\n", command);
+          /* Note: command is freed */
           return parse_and_execute (command, "form", 0);
         }
 
     }
   else
     {
-      printf ("Cannot find form '%s'\n", l->word->word);
+      builtin_error ("%s: no such formspec specification",
+                         l->word->word);
+      return (EXECUTION_FAILURE);
     }
   rval = EXECUTION_SUCCESS;
-  return (rval);
+  return (EXECUTION_SUCCESS);
 }

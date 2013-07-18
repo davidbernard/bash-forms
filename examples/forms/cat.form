@@ -37,7 +37,7 @@ fieldspec +fieldtype flag \
 		+values "" "-s" \
 		+displayvalues "None" \
 				"Adjacent empty lines"\
-		+hinttext "Remove adjacent empty line to make single lines spaced" \
+		+hinttext "Remove adjacent empty lines to make single lines spaced" \
 		cat.squeeze
 
 formspec \
