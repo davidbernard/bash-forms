@@ -1,7 +1,7 @@
-/* commandformlib.c - library functions for command forms. */
+/* screenform.c - library functions for screen forms. */
 
 /*
- * Copyright (C) 1999-2002 Free Software Foundation, Inc.
+ * Copyright (C) 2013 Free Software Foundation, Inc.
  * 
  * This file is part of GNU Bash, the Bourne Again SHell.
  * 
@@ -44,34 +44,14 @@
 #include <readline/tcap.h>
 #endif
 
-#define FIELDSPEC_HASH_BUCKETS  32      /* must be power of two */
-#define FORMSPEC_HASH_BUCKETS  32       /* must be power of two */
 
 #define STRDUP(x)  ((x) ? savestring (x) : (char *)NULL)
 
-HASH_TABLE *fieldspecs = (HASH_TABLE *) NULL;
-HASH_TABLE *formspecs = (HASH_TABLE *) NULL;
-
-
 /* Forward references */
-static void fieldspec_free __P ((PTR_T));
-static void fieldspec_dispose __P ((FIELDSPEC *));
-static int fieldspec_flushfree __P ((BUCKET_CONTENTS *));
-static void fieldspecs_create __P ((void));
-
-static void formspec_free __P ((PTR_T));
-
-
 
 /* Forward References */
 
 static int string_list_contains __P ((char **, char *));
-
-
-
-static int fieldspec_valueindex __P ((FIELDSPEC *, char *));
-static int fieldspec_displayvalueindex __P ((FIELDSPEC *, char *, int));
-
 static void screenfield_setwithindex __P ((SCREENFIELD *, int));
 static void screenfield_setwithvalue __P ((SCREENFIELD *, char *value));
 static void screenfield_setwithdisplayvalue
@@ -113,410 +93,17 @@ extern char *_rl_term_kr;
 extern char *_rl_term_kl;
 extern int _rl_horizontal_scroll_mode;
 
-/* Create a new field spec  */
-FIELDSPEC *
-fieldspec_create ()
-{
-  FIELDSPEC *ret;
-
-  ret = (FIELDSPEC *) xmalloc (sizeof (FIELDSPEC));
-  memset (ret, 0, sizeof (FIELDSPEC));
-  ret->refcount = 0;
-
-  ret->fieldtype = CF_FIELD_TYPE_INVALID;
-  ret->hinttext = (char *) NULL;
-  ret->helptext = (char *) NULL;
-  ret->label = (char *) NULL;
-  ret->flag = (char *) NULL;
-  ret->valuescount = 0;
-  ret->values = (char **) 0;
-  ret->displayvalues = (char **) 0;
-  ret->compspec = (char *) NULL;
-  ret->separator = (char *) NULL;
-
-  return ret;
-}
-
-/* Dispose of a fieldspec based on reference count */
-static void
-fieldspec_dispose (cs)
-     FIELDSPEC *cs;
-{
-  cs->refcount--;
-  if (cs->refcount == 0)
-    {
-      FREE (cs->hinttext);
-      FREE (cs->helptext);
-      FREE (cs->label);
-      FREE (cs->flag);
-      if (cs->values && cs->values[0])
-        {
-          FREE (cs->values[0]);
-          FREE (cs->values);
-        }
-      if (cs->displayvalues && cs->values != cs->displayvalues)
-        {
-          FREE (cs->displayvalues[0]);
-          FREE (cs->displayvalues);
-        }
-      FREE (cs->compspec);
-      FREE (cs->separator);
-      free (cs);
-    }
-}
 
 static void
-fieldspec_free (data)
-     PTR_T data;
+formfieldspec_dispose(formfieldspec)
+    FORMFIELDSPEC *formfieldspec;
 {
-  FIELDSPEC *cs;
-
-  cs = (FIELDSPEC *) data;
-  fieldspec_dispose (cs);
+/* XXX */
+  FREE (formfieldspec->fieldspecname);
+  free(formfieldspec);
+  
 }
 
-/* Call back function when flushing fieldspecs hash */
-static int
-fieldspec_flushfree (item)
-     BUCKET_CONTENTS *item;
-{
-  FIELDSPEC *cs;
-
-  cs = (FIELDSPEC *) item->data;
-  if (cs->refcount == 0)
-    {
-      hash_remove (item->key, fieldspecs, 0);
-      fieldspec_dispose (cs);
-    }
-  return 1;
-}
-
-
-/* Remove a fieldspec from the fieldspec hash and free the fieldspec */
-int
-fieldspec_remove (cmd)
-     char *cmd;
-{
-  register BUCKET_CONTENTS *item;
-  FIELDSPEC *cs;
-
-  if (fieldspecs == 0)
-    return 1;
-
-  cs = fieldspec_search (cmd);
-
-  /* Only remove if refcount 0 */
-  if (cs && cs->refcount == 0)
-    {
-      item = hash_remove (cmd, fieldspecs, 0);
-      if (item)
-        {
-          if (item->data)
-            fieldspec_free (item->data);
-          free (item->key);
-          free (item);
-          return (1);
-        }
-      else
-        return (0);
-    }
-  else
-    return (0);
-}
-
-/* Make fieldspec for retention */
-void
-fieldspec_retain (cs)
-     FIELDSPEC *cs;
-{
-  cs->refcount++;
-}
-
-/* Insert a new fieldspec into the fieldspecs hash */
-int
-fieldspec_insert (cmd, fs)
-     char *cmd;
-     FIELDSPEC *fs;
-{
-  register BUCKET_CONTENTS *item;
-
-  if (fs == NULL)
-    programming_error ("fieldspec_insert: %s: NULL FIELDSPEC", cmd);
-
-  if (fieldspecs == 0)
-    fieldspecs_create ();
-
-  item = hash_insert (cmd, fieldspecs, 0);
-  item->key = savestring (cmd);
-  item->data = fs;
-  return 1;
-}
-
-/* Locate a field spec via the fieldspecs hash */
-FIELDSPEC *
-fieldspec_search (cmd)
-     const char *cmd;
-{
-  register BUCKET_CONTENTS *item;
-  FIELDSPEC *cs;
-
-  if (fieldspecs == 0)
-    return ((FIELDSPEC *) NULL);
-
-  item = hash_search (cmd, fieldspecs, 0);
-
-  if (item == NULL)
-    return ((FIELDSPEC *) NULL);
-
-  cs = (FIELDSPEC *) item->data;
-
-  return (cs);
-}
-
-/* Create the fieldspecs hash if required */
-static void
-fieldspecs_create ()
-{
-  if (fieldspecs == 0)
-    fieldspecs = hash_create (FIELDSPEC_HASH_BUCKETS);
-}
-
-/*
- * Remove all entries from the fieldspecs hash and dispose of the objects if
- * not used.
- */
-void
-fieldspecs_flush ()
-{
-  if (fieldspecs)
-    hash_walk (fieldspecs, fieldspec_flushfree);
-}
-
-/*
- * FIXME can remove ? Dispose of all the fieldspec hash entries
- */
-static void
-fieldspecs_dispose ()
-{
-  if (fieldspecs)
-    hash_dispose (fieldspecs);
-  fieldspecs = (HASH_TABLE *) NULL;
-}
-
-/* Walk the fieldspecs hash calling for each entry a "helper" function */
-void
-fieldspecs_walk (pfunc)
-     hash_wfunc *pfunc;
-{
-  if (fieldspecs == 0 || pfunc == 0 || HASH_ENTRIES (fieldspecs) == 0)
-    return;
-
-  hash_walk (fieldspecs, pfunc);
-}
-
-/* formspec Utilities */
-
-/* Create a new formspec */
-FORMSPEC *
-formspec_create ()
-{
-  FORMSPEC *ret;
-
-  ret = (FORMSPEC *) xmalloc (sizeof (FORMSPEC));
-  memset (ret, 0, sizeof (FORMSPEC));
-
-  ret->command = (char *) NULL;
-  ret->displaylevelcount = 0;
-  ret->displaylevels = (DISPLAYLEVEL **) NULL;
-  return ret;
-}
-
-/* Dispose of a formspec */
-void
-formspec_dispose (form)
-     FORMSPEC *form;
-{
-  DISPLAYLEVEL **dl;
-
-  free (form->command);
-  if (form->displaylevels)
-    {
-      for (dl = form->displaylevels; *dl; dl++)
-        {
-          displaylevel_dispose (*dl);
-        }
-      FREE (form->displaylevels);
-    }
-  /* Free form */
-  free (form);
-}
-
-/* Create the formspecs hash if required */
-static void
-formspecs_create ()
-{
-  if (formspecs == 0)
-    formspecs = hash_create (FORMSPEC_HASH_BUCKETS);
-}
-
-
-/* Free a formspec */
-static void
-formspec_free (data)
-     PTR_T data;
-{
-  FORMSPEC *cs;
-
-  cs = (FORMSPEC *) data;
-  formspec_dispose (cs);
-}
-
-/* Flush all the formspecs from the formspecs hash and free them */
-void
-formspecs_flush ()
-{
-  if (formspecs)
-    hash_flush (formspecs, formspec_free);
-}
-
-/* Dispose of all the field spec hash entries */
-void
-formspecs_dispose ()
-{
-  if (formspecs)
-    hash_dispose (formspecs);
-  formspecs = (HASH_TABLE *) NULL;
-}
-
-/* Remove a formspec from the formspec hash and free the formspec */
-int
-formspec_remove (formname)
-     char *formname;
-{
-  register BUCKET_CONTENTS *item;
-
-  if (formspecs == 0)
-    return 1;
-
-  item = hash_remove (formname, formspecs, 0);
-  if (item)
-    {
-      if (item->data)
-        formspec_free (item->data);
-      free (item->key);
-      free (item);
-      return (1);
-    }
-  return (0);
-}
-
-
-/* Insert a new formspec into the formspec hash */
-int
-formspec_insert (formname, cs)
-     char *formname;
-     FORMSPEC *cs;
-{
-  register BUCKET_CONTENTS *item;
-
-  if (cs == NULL)
-    programming_error ("formspec_insert: %s: NULL FORMSPEC", formname);
-
-  if (formspecs == 0)
-    formspecs_create ();
-
-  item = hash_insert (formname, formspecs, 0);
-  if (item->data)
-    formspec_free (item->data);
-  else
-    item->key = savestring (formname);
-  item->data = cs;
-  return 1;
-}
-
-
-/* Locate a formspec  via the formspec hash */
-FORMSPEC *
-formspec_search (formname)
-     const char *formname;
-{
-  register BUCKET_CONTENTS *item;
-  FORMSPEC *cs;
-
-  if (formspecs == 0)
-    return ((FORMSPEC *) NULL);
-
-  item = hash_search (formname, formspecs, 0);
-
-  if (item == NULL)
-    return ((FORMSPEC *) NULL);
-
-  cs = (FORMSPEC *) item->data;
-
-  return (cs);
-}
-
-/*
- * Walk the formspecs hash calling for each entry a "helper" function
- */
-void
-formspecs_walk (pfunc)
-     hash_wfunc *pfunc;
-{
-  if (formspecs == 0 || pfunc == 0 || HASH_ENTRIES (formspecs) == 0)
-    return;
-
-  hash_walk (formspecs, pfunc);
-}
-
-DISPLAYLEVEL *
-displaylevel_create ()
-{
-  DISPLAYLEVEL *ret;
-
-  ret = (DISPLAYLEVEL *) xmalloc (sizeof (DISPLAYLEVEL));
-  memset (ret, 0, sizeof (DISPLAYLEVEL));
-
-  ret->screenfieldlist = (FORMFIELDSPEC **) NULL;
-  ret->generationfieldlist = (FORMFIELDSPEC **) NULL;
-  ret->displaylevel = (char *) NULL;
-  ret->fieldcount = 0;
-  return ret;
-}
-
-/* Dispose of display level */
-void
-displaylevel_dispose (displaylevel)
-     DISPLAYLEVEL *displaylevel;
-{
-  FORMFIELDSPEC **l;
-
-  /*
-   * Decrement the retain counts for all associated fields and free
-   * field list entries
-   */
-  if (displaylevel->screenfieldlist)
-    {
-      for (l = displaylevel->screenfieldlist; *l; l++)
-        {
-          (*l)->fieldspec->refcount--;
-          free (*l);
-        }
-      free (displaylevel->screenfieldlist);
-    }
-  if (displaylevel->generationfieldlist)
-    {
-      for (l = displaylevel->generationfieldlist; *l; l++)
-        {
-          free (*l);
-        }
-      free (displaylevel->generationfieldlist);
-    }
-  free (displaylevel->displaylevel);
-
-  /* Free form */
-  free (displaylevel);
-}
 
 /* Utility Functions */
 
@@ -1236,22 +823,17 @@ screenfield_setwithindex (screenfield, valueindex)
   fieldspec = screenfield->fieldspec;
 
   /* Free existing values */
-  if (screenfield->value)
-    {
-      free (screenfield->value);
-      screenfield->value = NULL;
-    }
-  if (screenfield->displayvalue)
-    {
-      free (screenfield->displayvalue);
-      screenfield->displayvalue = NULL;
-    }
+  FREE (screenfield->value);
+  FREE (screenfield->displayvalue);
+  screenfield->value = 0;
+  screenfield->displayvalue = 0;
+
   if (valueindex < fieldspec->valuescount && valueindex > -1)
     {
       screenfield->currentvalueindex = valueindex;
       screenfield->value = STRDUP (fieldspec->values[valueindex]);
       screenfield->displayvalue =
-        STRDUP (fieldspec->displayvalues[valueindex]);
+      STRDUP (fieldspec->displayvalues[valueindex]);
     }
   else
     {
@@ -1331,16 +913,11 @@ screenfield_setwithdisplayvalue (screenfield, displayvalue, partial)
   fieldspec = screenfield->fieldspec;
 
   /* Free existing values */
-  if (screenfield->value)
-    {
-      free (screenfield->value);
-      screenfield->value = NULL;
-    }
-  if (screenfield->displayvalue)
-    {
-      free (screenfield->displayvalue);
-      screenfield->displayvalue = NULL;
-    }
+  FREE(screenfield->value);
+  FREE(screenfield->displayvalue);
+  screenfield->value = 0;
+  screenfield->displayvalue = 0;
+
   /* Set value and default index */
 
   /* If there is a display translation check if value matches */
@@ -1404,10 +981,11 @@ screenform_populatefieldsfrompartialcommand (screenform, list)
   SCREENFIELD *screenfield;
   int valueindex;
   int found;
-
+  int i;
+  int j;
 
   fieldlist = screenform->displaylevel->generationfieldlist;
-  for (l = list->next; l && *fieldlist; l = l->next)
+  for (i = 0, l = list->next; l && i < screenform->displaylevel->fieldcount; l = l->next)
     {
       fieldspec = (*fieldlist)->fieldspec;
       screenfield = (*fieldlist)->screenfield;
@@ -1426,10 +1004,10 @@ screenform_populatefieldsfrompartialcommand (screenform, list)
            */
           found = 0;
 
-          for (fl = fieldlist; *fl &&
+          for (j = i, fl = fieldlist; j < screenform->displaylevel->fieldcount &&
                ((*fl)->fieldspec->fieldtype == CF_FIELD_TYPE_FLAG ||
                 (*fl)->fieldspec->fieldtype == CF_FIELD_TYPE_FLAGWITHVALUE);
-               fl++)
+               fl++, j++)
             {
               fieldspec = (*fl)->fieldspec;
               screenfield = (*fieldlist)->screenfield;
@@ -1503,19 +1081,21 @@ screenform_populatefieldsfrompartialcommand (screenform, list)
           if (found)
             continue;
 
-          if (!*fl)
+          if (j == screenform->displaylevel->fieldcount)
             {
               /*
                * No more positional arguments - all
                * trailing
                */
               fieldlist = fl;
+              i = j;
               break;
             }
           else
             {
               /* No matching flags so position to fieldspec  */
               fieldlist = fl;
+              i = j;
               fieldspec = (*fieldlist)->fieldspec;
               screenfield = (*fieldlist)->screenfield;
               /* Drop through */
@@ -1552,6 +1132,7 @@ screenform_populatefieldsfrompartialcommand (screenform, list)
                   screenfield_appendtovalue (screenfield, l->word->word);
                 }
               fieldlist++;
+              i++;
             }
         }
       else if (fieldspec->fieldtype == CF_FIELD_TYPE_POSITIONAL
@@ -1560,6 +1141,7 @@ screenform_populatefieldsfrompartialcommand (screenform, list)
           /* Set value */
           screenfield_setwithvalue (screenfield, l->word->word);
           fieldlist++;
+          i++;
         }
       else if (fieldspec->fieldtype == CF_FIELD_TYPE_REST)
         {
@@ -1573,8 +1155,9 @@ screenform_populatefieldsfrompartialcommand (screenform, list)
     }
 
   /* Set default values for unspecified fields */
-  for (fieldlist = screenform->displaylevel->generationfieldlist; *fieldlist;
-       fieldlist++)
+  for (i = 0, fieldlist = screenform->displaylevel->generationfieldlist; 
+       i < screenform->displaylevel->fieldcount;
+       fieldlist++, i++)
     {
       fieldspec = (*fieldlist)->fieldspec;
       screenfield = (*fieldlist)->screenfield;
@@ -1813,15 +1396,12 @@ screenform_draw (screenform)
   int i;
   int y;
 
-
-
-
   /* Display top line */
   buff = xmalloc ((unsigned int) (screenform->width + 1));
   memset (buff, '-', (unsigned int) (screenform->width));
   buff[screenform->width] = '\0';
   len = strlen (screenform->label);
-  cp = buff + ((screenform->width / 2) - (len / 2));
+  cp = buff + ((screenform->width / 2) - ((len+1) / 2));
   if (cp < buff)
     {
       cp = buff;
@@ -1920,13 +1500,15 @@ void
 screenform_layout (screenform)
      SCREENFORM *screenform;
 {
-  FORMFIELDSPEC **fieldlist;
   SCREENFIELD *screenfield;
   FIELDSPEC *field;
+  FORMFIELDSPEC *formfieldspec;
+
   int labelwidth;
   int maxlabelwidth;
   int y;
   int i;
+  int j;
   char *ap;
   char *bp;
 
@@ -1947,14 +1529,16 @@ screenform_layout (screenform)
 
   /* 1. Set up screen fields and determine label width */
   maxlabelwidth = 0;
-  for (fieldlist = screenform->displaylevel->screenfieldlist, screenfield =
-       screenform->screenfields; *fieldlist; fieldlist++, screenfield++)
+  for (i = 0,  screenfield =
+       screenform->screenfields; i < screenform->fieldcount; i++, screenfield++)
     {
-      field = (*fieldlist)->fieldspec;
+
+      formfieldspec = screenform->displaylevel->screenfieldlist[i];
+      field = formfieldspec->fieldspec;
       /* Cross link screenfield and fieldspec */
-      (*fieldlist)->screenfield = screenfield;
+      formfieldspec->screenfield = screenfield;
       /* Cross link matching generationfieldlist entry */
-      (*fieldlist)->crosslink->screenfield = screenfield;
+      formfieldspec->crosslink->screenfield = screenfield;
       screenfield->fieldspec = field;
       labelwidth = strlen (field->label);
       if (labelwidth > maxlabelwidth)
@@ -1970,22 +1554,22 @@ screenform_layout (screenform)
 
   screenform->maxlabelwidth = maxlabelwidth;
   /* 2. Layout each field  - right align field labels */
-  for (fieldlist = screenform->displaylevel->screenfieldlist, screenfield =
-       screenform->screenfields; *fieldlist; fieldlist++, screenfield++)
+  for (i = 0,  screenfield =
+       screenform->screenfields; i < screenform->fieldcount; i++, screenfield++)
     {
-      field = (*fieldlist)->fieldspec;
-      if (screenfield->label)
-        free (screenfield->label);
-      screenfield->label = xmalloc ((unsigned int) (maxlabelwidth + 2));
+      formfieldspec = screenform->displaylevel->screenfieldlist[i];
+      field = formfieldspec->fieldspec;
+      FREE (screenfield->label);
+      screenfield->label = xmalloc ((unsigned int) (maxlabelwidth + 3));
       memset (screenfield->label, ' ', (unsigned int) maxlabelwidth);
       labelwidth = strlen (field->label);
-      /* Watch for large labels */
+      /* Truncate for large labels */
       if (labelwidth > maxlabelwidth)
         labelwidth = maxlabelwidth;
       /* Right justify label */
-      for (i = 0, ap = field->label,
+      for (j = 0, ap = field->label,
            bp = screenfield->label + (maxlabelwidth - labelwidth);
-           *ap && i < maxlabelwidth; bp++, ap++, i++)
+           *ap && j < labelwidth; bp++, ap++, j++)
         *bp = *ap;
 
       /* Add delimiter */
@@ -1998,7 +1582,8 @@ screenform_layout (screenform)
 
       /* last field level space for separator */
       if ((field->fieldtype == CF_FIELD_TYPE_LAST
-           || field->fieldtype == CF_FIELD_TYPE_REST) && *(fieldlist + 1))
+           || field->fieldtype == CF_FIELD_TYPE_REST) 
+           && i < (screenform->fieldcount - 1))
         y++;
 
       screenfield->inputx = maxlabelwidth + 1;
@@ -2026,23 +1611,23 @@ screenform_init (formspec, displaylevel, label)
   SCREENFORM *screenform;
 
   /* Create SCREENFORM and SCREENFIELDs */
-  screenform = xmalloc (sizeof *screenform);
+  screenform = xmalloc (sizeof (SCREENFORM));
   memset (screenform, 0, sizeof (SCREENFORM));
 
   screenform->displaylevel = displaylevel;
+  screenform->fieldcount = screenform->displaylevel->fieldcount;
 
   /* Allocate screen fields */
   screenform->screenfields =
     (SCREENFIELD *)
-    xmalloc ((unsigned int) (screenform->displaylevel->fieldcount *
+    xmalloc ((unsigned int) (screenform->fieldcount *
                              sizeof (SCREENFIELD)));
   memset (screenform->screenfields, 0,
-          (unsigned int) (screenform->displaylevel->fieldcount *
+          (unsigned int) (screenform->fieldcount *
                           sizeof (SCREENFIELD)));
 
   /* Initialising housekeeping */
   screenform->label = savestring (label);
-  screenform->fieldcount = screenform->displaylevel->fieldcount;
   screenform->formspec = formspec;
 
   return screenform;
@@ -2053,195 +1638,29 @@ void
 screenform_dispose (screenform)
      SCREENFORM *screenform;
 {
-  FORMFIELDSPEC **fieldlist;
   SCREENFIELD *screenfield;
 
   /*
    * 1. loop through the generate field list to construct command
    * arguments
    */
-  for (fieldlist = screenform->displaylevel->generationfieldlist; *fieldlist;
-       fieldlist++)
+  int i;
+  for (i = 0; i < screenform->fieldcount; i++)
     {
-      screenfield = (*fieldlist)->screenfield;
-      free (screenfield->value);
-      free (screenfield->displayvalue);
-      free (screenfield->label);
+      screenfield = &screenform->screenfields[i];
+      FREE (screenfield->value);
+      FREE (screenfield->displayvalue);
+      FREE (screenfield->label);
     }
-  /* 2. Free up screen fields */
-  free (screenform->label);
-  free (screenform->screenfields);
+
+  /*
+   * 2. Free up screen fields 
+   */
+  FREE (screenform->label);
+  FREE (screenform->screenfields);
   cf_screenform = NULL;
   free (screenform);
 }
-
-
-/* Field specifier functions */
-
-
-/* Print field specification */
-#define CONDITIONALSQPRINTSTRING(a, f) \
-    if (a && *a) \
-      { \
-        x = sh_single_quote (a); \
-  printf ("%s %s ", f, x); \
-  free (x); \
-      }
-
-#define CONDITIONALPRINTDOUBLE(a, f) \
-    if (a != 0.0 ) \
-      printf ("%s %g ", f, a);
-
-#define CONDITIONALPRINTINT(a, f) \
-    if (a != 0 ) \
-      printf ("%s %d ",  f, a);
-
-#define CONDITIONALPRINTSTRING(a, f) \
-    if ( a && *(a) )  \
-      printf ("%s %s", f, a);
-
-int
-fieldspec_print (cmd, cs)
-     char *cmd;
-     FIELDSPEC *cs;
-{
-  char **pvalue;
-  char *string;
-  char *x;
-
-  printf ("fieldspec ");
-
-  string = NULL;
-  CONDITIONALSQPRINTSTRING (cs->label, "+label")
-    CONDITIONALSQPRINTSTRING (string, "+fieldtype");
-  if (cs->fieldtype == CF_FIELD_TYPE_FLAG)
-    string = "flag";
-  else if (cs->fieldtype == CF_FIELD_TYPE_FLAGWITHVALUE)
-    string = "flagwithvalue";
-  else if (cs->fieldtype == CF_FIELD_TYPE_POSITIONAL)
-    string = "positional";
-  else if (cs->fieldtype == CF_FIELD_TYPE_UPTOLAST)
-    string = "uptolast";
-  else if (cs->fieldtype == CF_FIELD_TYPE_LAST)
-    string = "last";
-  else if (cs->fieldtype == CF_FIELD_TYPE_REST)
-    string = "rest";
-  CONDITIONALSQPRINTSTRING (cs->compspec, "+compspec")
-    CONDITIONALSQPRINTSTRING (cs->separator, "+separator")
-    CONDITIONALSQPRINTSTRING (cs->flag, "+flag")
-    if (cs->displayvalues && *(cs->displayvalues))
-    {
-      printf ("+displayvalues ");
-      for (pvalue = cs->displayvalues; *pvalue; pvalue++)
-        {
-          x = sh_single_quote (*pvalue);
-          printf ("%s ", x);
-          free (x);
-        }
-    }
-  if (cs->values && *(cs->values))
-    {
-      printf ("+values ");
-      for (pvalue = cs->values; *pvalue; pvalue++)
-        {
-          x = sh_single_quote (*pvalue);
-          printf ("%s ", x);
-          free (x);
-        }
-    }
-  CONDITIONALSQPRINTSTRING (cs->hinttext, "+hinttext")
-    CONDITIONALSQPRINTSTRING (cs->helptext, "+helptext") printf ("%s\n", cmd);
-
-  return (0);
-}
-
-
-
-
-/* Determine the index into the translation table for a value. */
-static int
-fieldspec_valueindex (fieldspec, value)
-     FIELDSPEC *fieldspec;
-     char *value;
-{
-  int i;
-  for (i = 0; i < fieldspec->valuescount; i++)
-    {
-      if (strcmp (fieldspec->values[i], value) == 0)
-        return i;
-    }
-  return -1;
-}
-
-/* Determine the index into the translation table for a display value. */
-static int
-fieldspec_displayvalueindex (fieldspec, displayvalue, partial)
-     FIELDSPEC *fieldspec;
-     char *displayvalue;
-     int partial;
-{
-  int i;
-  int len = strlen (displayvalue);
-
-  for (i = 0; i < fieldspec->valuescount; i++)
-    {
-      if (partial)
-        {
-          if (strncasecmp
-              (fieldspec->displayvalues[i], displayvalue,
-               (unsigned int) len) == 0)
-            return i;
-        }
-      else
-        {
-          if (strcmp (fieldspec->displayvalues[i], displayvalue) == 0)
-            return i;
-        }
-    }
-  return -1;
-}
-
-/*
- * Form specifier functions
- * 
- */
-
-
-/*
- * Print a form specifier
- */
-int
-formspec_print (formname, form)
-     char *formname;
-     FORMSPEC *form;
-{
-
-  FORMFIELDSPEC **l;
-  DISPLAYLEVEL **d;
-  char *x;
-
-  printf ("formspec ");
-
-  for (d = form->displaylevels; *d; d++)
-    {
-      printf ("+displaylevel=%s ", (*d)->displaylevel);
-      printf ("+screenfieldlist ");
-      for (l = (*d)->screenfieldlist; *l; l++)
-        {
-          printf ("%s ", (*l)->fieldspecname);
-        }
-      printf ("+generationformlist ");
-      for (l = (*d)->generationfieldlist; *l; l++)
-        {
-          printf ("%s ", (*l)->fieldspecname);
-        }
-    }
-  CONDITIONALSQPRINTSTRING (form->command, "+command")
-    CONDITIONALSQPRINTSTRING (formname, "+formname") printf ("\n");
-  return (0);
-}
-
-
 
 
 #endif /* COMMAND_FORMS */

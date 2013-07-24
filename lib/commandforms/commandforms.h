@@ -203,12 +203,15 @@ extern int fieldspec_insert __P ((char *, FIELDSPEC *));
 extern void fieldspec_retain __P ((FIELDSPEC *));
 extern int fieldspec_remove __P ((char *));
 extern int fieldspec_print __P ((char *, FIELDSPEC *));
-extern FIELDSPEC *fieldspec_search __P ((const char *));
+extern FIELDSPEC *fieldspec_search __P ((char *));
 extern void fieldspecs_walk __P ((hash_wfunc *));
 extern STRINGLIST *fieldspec_to_stringlist __P ((char **));
 extern STRINGLIST *gen_fieldspec_completions
-__P ((FIELDSPEC *, const char *, const char *, int, int));
-extern char **field_specs __P ((const char *, const char *, int, int, int *));
+__P ((FIELDSPEC *, char *, char *, int, int));
+extern char **field_specs __P ((char *, char *, int, int, int *));
+extern int fieldspec_valueindex __P ((FIELDSPEC *, char *));
+extern int fieldspec_displayvalueindex __P ((FIELDSPEC *, char *, int));
+
 
 
 extern FORMSPEC *formspec_create __P ((void));
@@ -218,7 +221,7 @@ extern void formspecs_dispose __P ((void));
 extern int formspec_insert __P ((char *, FORMSPEC *));
 extern int formspec_remove __P ((char *));
 extern int formspec_print __P ((char *, FORMSPEC *));
-extern FORMSPEC *formspec_search __P ((const char *));
+extern FORMSPEC *formspec_search __P ((char *));
 extern void formspecs_walk __P ((hash_wfunc *));
 extern STRINGLIST *formspec_to_stringlist __P ((char **));
 

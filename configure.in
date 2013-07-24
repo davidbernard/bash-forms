@@ -24,7 +24,7 @@ dnl Process this file with autoconf to produce a configure script.
 AC_REVISION([for Bash 4.2, version 4.037])dnl
 
 define(bashvers, 4.2)
-define(relstatus, release)
+define(relstatus, development)
 
 AC_INIT([bash], bashvers-relstatus, [bug-bash@gnu.org])
 
@@ -1105,7 +1105,7 @@ case "$srcdir" in
 *)	for d in doc tests support lib examples; do	# dirs
 		test -d $d || mkdir $d
 	done
-	for ld in readline glob tilde commandformsmalloc sh termcap; do	# libdirs
+	for ld in readline glob tilde commandforms malloc sh termcap; do	# libdirs
 		test -d lib/$ld || mkdir lib/$ld
 	done
 	test -d examples/loadables || mkdir examples/loadables	# loadable builtins

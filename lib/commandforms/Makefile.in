@@ -83,7 +83,7 @@ HSOURCES = readline.h rldefs.h chardefs.h keymaps.h history.h histlib.h \
 HISTOBJ = history.o histexpand.o histfile.o histsearch.o shell.o savestring.o \
 	  mbutil.o
 TILDEOBJ = tilde.o
-OBJECTS = commandformlib.o
+OBJECTS = displaylevel.o fieldspec.o formspec.o screenform.o
 
 # The texinfo files which document this library.
 DOCSOURCE = doc/rlman.texinfo doc/rltech.texinfo doc/rluser.texinfo
@@ -139,7 +139,10 @@ distclean maintainer-clean: clean
 	$(RM) TAGS tags
 
 # Dependencies
-commandformlib.o: commandforms.h ../../shell.h ../../pcomplete.h 
+displaylevel.o: commandforms.h ../../shell.h ../../pcomplete.h 
+fieldspec.o: commandforms.h ../../shell.h ../../pcomplete.h 
+formspec.o: commandforms.h ../../shell.h ../../pcomplete.h 
+screenform.o: commandforms.h ../../shell.h ../../pcomplete.h 
 
 # Rules for deficient makes, like SunOS and Solaris
 commandformlib.o: commandformlib.c

@@ -361,9 +361,16 @@ CF_LIBRARY = $(CF_LIBDIR)/libcommandforms.a
 CF_LDFLAGS = -L$(CF_LIBDIR)
 CF_DEP = $(CF_LIBRARY)
 
-CF_SOURCE = $(CF_LIBSRC)/commandformlib.c \
-	      $(CF_LIBSRC)/commandforms.h 
-CF_OBJ    = $(CF_LIBDIR)/commandformlib.o 
+CF_SOURCE = $(CF_LIBSRC)/displaylevel.c \
+	    $(CF_LIBSRC)/fieldspec.c \
+	    $(CF_LIBSRC)/formspec.c \
+	    $(CF_LIBSRC)/screenform.c \
+            $(CF_LIBSRC)/commandforms.h 
+
+CF_OBJ    = $(CF_LIBDIR)/displaylevel.o \
+            $(CF_LIBDIR)/fieldspec.o \
+            $(CF_LIBDIR)/formspec.o \
+            $(CF_LIBDIR)/screenform.o 
 
 # libiconv
 LIBICONV = @LIBICONV@

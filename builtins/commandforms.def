@@ -464,7 +464,9 @@ fieldspec_builtin (list)
   if (fieldspec_insert (list->word->word, cs) == 0)
     return (EXECUTION_FAILURE);
   else
-    return (EXECUTION_SUCCESS);
+    {
+      return (EXECUTION_SUCCESS);
+    }
 
 usage_error:
   /* XXXXXX */
@@ -994,7 +996,6 @@ int
 form_builtin (list)
      WORD_LIST *list;
 {
-  int rval;
   FORMSPEC *form;
   FORMFIELDSPEC **fieldlist;
   FIELDSPEC *field;
@@ -1265,6 +1266,5 @@ form_builtin (list)
                          l->word->word);
       return (EXECUTION_FAILURE);
     }
-  rval = EXECUTION_SUCCESS;
   return (EXECUTION_SUCCESS);
 }
