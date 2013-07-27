@@ -134,10 +134,13 @@ $DEPENDS_ON COMMAND_FORMS
 $FUNCTION fieldspec_builtin
 $SHORT_DOC field_spec [-pr] +label <label> 
  +fieldtype flag|flagwithvalue|positional|uptolast|last|rest 
- [ +compspec <compspec name> ] 
+ [+flag <flag text>]
+ [+compspec <compspec name> ] 
  [+separator <separator to next field> ]
- [+displaylevels <level 1> <level 2> ...]
- [+hinttext <hint text>] [+helptext <help text>] 
+ [+values <value1> <value2> ...]
+ [+displayvalues <text1> <text2> ...]
+ [+hinttext (<hint text> | <hint text1> <hint text2> ...)]
+ [+helptext <help text>] 
  <fieldspec name> ...
 This command defines a type of field for display on a command form defined using the command formspec.
 
@@ -151,14 +154,16 @@ Options:
     last           The last argument
     rest           Any additional arguments
 
++flag      The flag string to prefix the field on the command line.
 +compspec  A command completion specification for the field
 +separator String used to separate fields. If two or more fields are adjacent and
            have same seperator then insert separator.
-+flag      The flag string to prefix the field on the command line.
 +displayvalues
            List of strings to display for selection by the user.
 +values    List of corresponding strings to be inserted into the command line.
 +hinttext  Text to be displayed on the status line when the field is selected
+           If more than one value is specified hint text for each value can
+           be provided
 +helptext  Help text to be displayed with help on this field is required
 
 $END
@@ -176,7 +181,6 @@ fieldspec_builtin (list)
   int i;
 
   char *fieldtype;
-  char *hinttext;
   char *helptext;
   char *label;
   char *compspec;
@@ -193,20 +197,27 @@ fieldspec_builtin (list)
   int displayvaluescount;
   WORD_LIST *displayvalueslist;
 
+  char **hinttext;
+  int hinttextlength;
+  int hinttextcount;
+  WORD_LIST *hinttextlist;
 
   fieldtype = NULL;
-  hinttext = NULL;
   helptext = NULL;
   label = NULL;
   values = NULL;
   displayvalues = NULL;
+  hinttext = NULL;
   valueslist = NULL;
   displayvalueslist = NULL;
+  hinttextlist = NULL;
 
   valuescount = 0;
   displayvaluescount = 0;
+  hinttextcount = 0;
   valueslength = 0;
   displayvalueslength = 0;
+  hinttextlength = 0;
   compspec = NULL;
   separator = NULL;
   flag = NULL;
@@ -319,8 +330,30 @@ fieldspec_builtin (list)
               l = ll;
               goto next;
             }
-          CHECKFORSTRINGARG ("+hinttext", hinttext)
-            CHECKFORSTRINGARG ("+helptext", helptext)
+          else if (strcmp ("+hinttext", l->word->word) == 0)
+            {
+              hinttextlist = l->next;
+              hinttextlength = 0;
+              hinttextcount = 0;
+              /* Determine the length the hinttext string will need 
+                 Note: Last word is always command */
+              for (ll = l->next; ll->next; ll = ll->next)
+                {
+                  if (ll->word->word[0] == '+')
+                    {
+                      l = ll;
+                      goto next;
+                    }
+                  else
+                    {
+                      hinttextlength += strlen (ll->word->word) + 1;
+                      hinttextcount++;
+                    }
+                }
+              l = ll;
+              goto next;
+            }
+          CHECKFORSTRINGARG ("+helptext", helptext)
           else
             {
               /* Should follow list of field names */
@@ -350,6 +383,13 @@ fieldspec_builtin (list)
       return (EX_USAGE);
     }
 
+  if (hinttextcount > 1 && valuescount != hinttextcount)
+    {
+      builtin_error
+        ("%s: 'values' and 'hinttext' must have same number of values or share a single hinttext",
+         l->word->word);
+      return (EX_USAGE);
+    }
   /* is fieldspec already defined */
   cs = fieldspec_search (l->word->word);
 
@@ -373,6 +413,7 @@ fieldspec_builtin (list)
   cs = fieldspec_create ();
 
   cs->valuescount = valuescount;
+  cs->hinttextcount = hinttextcount;
 
   if (fieldtype && *fieldtype)
     {
@@ -398,8 +439,6 @@ fieldspec_builtin (list)
   else
     cs->fieldtype = CF_FIELD_TYPE_POSITIONAL;
 
-  cs->hinttext = STRDUP (hinttext);
-  cs->helptext = STRDUP (helptext);
   if (label)
     cs->label = STRDUP (label);
   else
@@ -457,6 +496,28 @@ fieldspec_builtin (list)
       cs->displayvalues = cs->values;
     }
 
+  if (hinttextcount > 0)
+    {
+      cs->hinttext =
+        xmalloc ((unsigned int) ((hinttextcount + 1) * sizeof (char *)));
+      cs->hinttext[0] = xmalloc ((unsigned int) hinttextlength);
+
+      op = cs->hinttext[0];
+      for (i = 0, ll = hinttextlist; ll->next; i++, ll = ll->next)
+        {
+          if (ll->word->word[0] == '+')
+            break;
+          else if (ll->word->word[0] == '\\')
+            ip = ll->word->word + 1;
+          else
+            ip = ll->word->word;
+          cs->hinttext[i] = op;
+
+          while ((*op++ = *ip++));
+
+        }
+      cs->hinttext[i] = 0;
+    }
   cs->compspec = STRDUP (compspec);
   cs->separator = STRDUP (separator);
   cs->flag = STRDUP (flag);

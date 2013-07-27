@@ -3,70 +3,175 @@
 #	A form definiation for the "chmod" command
 #
 fieldspec +fieldtype uptolast \
-	+label "Files/Directories" \
-	+hinttext "Files/directories to copy" \
+	+label "Source Files/Directories" \
+	+hinttext "Source files/directories to copy" \
 	+helptext \
-"The files/directories to copy to the destination" \
+"The source files/directories to copy to the destination" \
 	-- cp.files
 
 fieldspec +fieldtype last \
 	+label "Destination" \
-	+hinttext "The new file or destination directory" \
+	+hinttext "The new file or existing directory destination" \
 	cp.destination
 
 fieldspec +fieldtype flag \
-		+label "Follow symbolic links" \
-		+values "" "-H" "-L" "-P" \
-		+displayvalues "" "On the command line" "Always" "Never" \
-		+hinttext "When recursing whether to follow symbolic links" \
-		cp.symboliclinks
+     +label "Archive" \
+     +values "" "--archive" \
+     +displayvalues "" "Archive Mode" \
+     +hinttext "" \
+     cp.archive
+
+fieldspec +fieldtype flagwithvalue \
+     +label "Backup" \
+     +flag "--backup=" \
+     +values "" "numbered" "existing" "simple"\
+     +displayvalues "" "numbered" "existing" "simple"\
+     +hinttext "make a backup of each existing destination file" \
+     cp.backup
 
 fieldspec +fieldtype flag \
-		+label "Recursive" \
-		+values "" "-R" \
-		+displayvalues "" \
-				"Recursive"\
-		+hinttext "Copy all directories and their contents - hard links not preserved " \
-		cp.recursively
+     +label "Special Files" \
+     +hinttext "Copy the contents of special files when recursing" \
+     +values "" "--copy-contents" \
+     +displayvalues "Copy File" "Copy Contents When Recursing" \
+     cp.copy-contents
+
+
+#      -p     same as --preserve=mode,ownership,timestamps
+#
+#      --preserve[=ATTR_LIST]
+#             preserve  the   specified   attributes   (default:   mode,owner-
+#             ship,timestamps),  if  possible  additional attributes: context,
+#             links, xattr, all
+#
+#      -c     same as --preserve=context
+#
+#      --no-preserve=ATTR_LIST
+#             don’t preserve the specified attributes
+#
+#
+#      -R, -r, --recursive
+#             copy directories recursively
+#
+#      --reflink[=WHEN]
+#             control clone/CoW copies. See below.
+#
+#      --remove-destination
+#             remove each existing destination file before attempting to  open
+#             it (contrast with --force)
+#
+#      --strip-trailing-slashes
+#             remove any trailing slashes from each SOURCE argument
 
 fieldspec +fieldtype flag \
-		+label "User/Id & Times" \
-		+values "" "-p"  \
-		+displayvalues "New" \
-				"Preserve"\
-		+hinttext "Perserve mondification times and/or user id (superuser only)" \
-		cp.preserve
+           +label "Copy/Link" \
+           +values "" "--symbolic-link" "--link" \
+           +displayvalues "Copy" "Create symbolic links for files" "Create files system links" \
+           +hinttext "Normal Copy" "Create symbolic links to source files (full path required) in destination" "Create file system links to source files in destination" \
+           cp.link
 
 fieldspec +fieldtype flag \
-		+label "Target Exists" \
-		+values "" "-f" "-n" \
-		+displayvalues "Overwrite" "Replace" "Don't Copy"  \
-		+hinttext "If the file exists: Reuse existing file or Create new file" \
-		cp.reuse
+          +label "Destination Path" \
+          +values "" "--parents" \
+          +displayvalues "File" "Path of file"\
+          +hinttext "Destination path just file name or include path to file"\
+          cp.parents
+
+fieldspec +fieldtype flagwithvalue \
+    +label "Sparse" \
+    +flag "--sparse=" \
+    +values "auto" "always" "never" \
+    +displayvalues "Automatic" "Always" "Never" \
+    +hinttext "Whether to create sparse files on copy" \
+    cp.sparse
+          
+fieldspec +fieldtype flagwithvalue \
+    +label "Backup file suffix" \
+    +flag "--suffix=" \
+    +hinttext "Suffix for backup files" \
+    cp.suffix
 
 fieldspec +fieldtype flag \
-		+label "Diagnostic" \
-		+values "" "-v" "-i" \
-		+displayvalues "Normal" \
-				"Verbose"\
-				"Prompt"\
-		+hinttext "Display level for diagnostic messages" \
-		cp.diagnostic
+    +label "Newer?" \
+    +values "" "--update" "--compare" \
+    +displayvalues "always" "Only if new" "Only if different" \
+    +hinttext "Copy only if file is newer or different" \
+    cp.update
+
+
+#      -Z, --context=CONTEXT
+#             set security context of copy to CONTEXT
+
+fieldspec +fieldtype flag \
+    +label "File Systems" \
+    +values "" "--one-file-system" \
+    +displayvalues "Span" "Keep to specified file system" \
+    +hinttext "Whether to recurse through mount points into other file systems" \
+    cp.one-file-system
+
+fieldspec +fieldtype flag \
+    +label "Symbolic links" \
+    +values "" "-H" "--dereference" "--no-dereference" \
+    +displayvalues "Copy" "Follow on the command line" "Always follow" "Never follow" \
+    +hinttext "When recursing whether to copy or follow symbolic links" \
+    cp.symboliclinks
+
+fieldspec +fieldtype flag \
+    +label "Recursive" \
+    +values "" "--recursive" \
+    +displayvalues "" \
+        "Recursive"\
+    +hinttext "Copy all directories and their contents - hard links not preserved " \
+    cp.recursively
+
+fieldspec +fieldtype flagwithvalue \
+    +label "User/Id & Times" \
+    +flag "--preserve=" \
+    +values "" "mode" "ownership" "timestamps"  \
+    +displayvalues "" "File Mode and ACL" \
+        "Ownership" "Timestamps"\
+    +hinttext "Perserve modification times and/or user id (superuser only)" \
+    cp.preserve
+
+
+fieldspec +fieldtype flag \
+    +label "Destination Files/Directories" \
+    +values "" "--force" "--remove-destination"  "--interactive" "--no-clober"\
+    +displayvalues "Overwrite Existing" "Remove if unwriteable"  "Remove Always" "Ask" "Don't Copy"  \
+    +hinttext "If the destination file/directory exists: Reuse existing file, replace or remove" \
+    cp.reuse
+
+fieldspec +fieldtype flag \
+    +label "Diagnostic" \
+    +values "" "-v" \
+    +displayvalues "Normal" "Verbose"\
+    +hinttext "Display diagnostic messages" \
+      cp.diagnostic
 
 formspec \
     +displaylevel=simple \
-     +screenfieldlist \
-			cp.files cp.destination \
-		 +generationfieldlist \
-			cp.files cp.destination \
+      +screenfieldlist \
+        cp.files cp.destination \
+      +generationfieldlist \
+        cp.files cp.destination \
+    +displaylevel=backup \
+      +screenfieldlist \
+        cp.files cp.destination cp.backup cp.suffix\
+      +generationfieldlist \
+        cp.backup cp.suffix cp.files cp.destination \
+    +displaylevel=link \
+      +screenfieldlist \
+        cp.files cp.destination cp.link cp.recursively \
+      +generationfieldlist \
+        cp.recursively cp.link cp.files cp.destination \
     +displaylevel=advanced \
-     +screenfieldlist \
-			cp.files cp.destination \
-			cp.reuse cp.preserve cp.recursively cp.diagnostic cp.symboliclinks \
-		 +generationfieldlist \
-			cp.reuse cp.preserve cp.recursively cp.diagnostic cp.symboliclinks \
-			cp.files cp.destination \
-		+command cp \
-		+formname cp
+      +screenfieldlist \
+        cp.files cp.destination \
+        cp.update cp.reuse cp.preserve cp.recursively cp.diagnostic cp.symboliclinks \
+      +generationfieldlist \
+        cp.update cp.reuse cp.preserve cp.recursively cp.diagnostic cp.symboliclinks \
+        cp.files cp.destination \
+        +command cp \
+        +formname cp
 
 

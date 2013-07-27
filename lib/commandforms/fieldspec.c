@@ -69,13 +69,14 @@ fieldspec_create ()
   fieldspec->refcount = 0;
 
   fieldspec->fieldtype = CF_FIELD_TYPE_INVALID;
-  fieldspec->hinttext = (char *) NULL;
   fieldspec->helptext = (char *) NULL;
   fieldspec->label = (char *) NULL;
   fieldspec->flag = (char *) NULL;
   fieldspec->valuescount = 0;
+  fieldspec->hinttextcount = 0;
   fieldspec->values = (char **) 0;
   fieldspec->displayvalues = (char **) 0;
+  fieldspec->hinttext = (char **) NULL;
   fieldspec->compspec = (char *) NULL;
   fieldspec->separator = (char *) NULL;
 
@@ -90,7 +91,6 @@ fieldspec_dispose (fieldspec)
   fieldspec->refcount--;
   if (fieldspec->refcount == 0)
     {
-      FREE (fieldspec->hinttext);
       FREE (fieldspec->helptext);
       FREE (fieldspec->label);
       FREE (fieldspec->flag);
@@ -103,6 +103,11 @@ fieldspec_dispose (fieldspec)
         {
           FREE (fieldspec->displayvalues[0]);
           free (fieldspec->displayvalues);
+        }
+      if (fieldspec->hinttext)
+        {
+          FREE (fieldspec->hinttext[0]);
+          free (fieldspec->hinttext);
         }
       FREE (fieldspec->compspec);
       FREE (fieldspec->separator);
@@ -333,7 +338,16 @@ fieldspec_print (cmd, cs)
           free (x);
         }
     }
-  CONDITIONALSQPRINTSTRING (cs->hinttext, "+hinttext")
+  if (cs->hinttext && *(cs->hinttext))
+    {
+      printf ("+hinttext ");
+      for (pvalue = cs->hinttext; *pvalue; pvalue++)
+        {
+          x = sh_single_quote (*pvalue);
+          printf ("%s ", x);
+          free (x);
+        }
+    }
     CONDITIONALSQPRINTSTRING (cs->helptext, "+helptext") printf ("%s\n", cmd);
 
   return (0);

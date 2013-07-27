@@ -118,11 +118,12 @@ struct fieldspec
 /* Values to use for generation of command  - first value is default
 	if more than one value then select from list of values */
   int valuescount;
+  int hinttextcount;
   char **values;
 /* Values to use for dislaying list of options if different from above */
   char **displayvalues;
 /* Hint and help text */
-  char *hinttext;
+  char **hinttext;
   char *helptext;
 };
 typedef struct fieldspec FIELDSPEC;

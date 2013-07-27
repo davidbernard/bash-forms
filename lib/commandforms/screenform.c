@@ -185,11 +185,9 @@ cf_right_arrow_key (count, c)
       /* If value to display mapping */
       if (screenfield->fieldspec->valuescount > 1)
         {
+          cf_screenform->nextnavigation = CF_NO_NAVIGATION;;
           cf_next_value (screenfield);
-          rl_replace_line (screenfield->displayvalue, 0);
-          rl_point = rl_end;
-          rl_mark = 0;
-          return 0;
+	  return rl_newline (count, c);
         }
 #if defined(SELECTFROMCOMPLETION)
       else if (screenfield->completionlist)
@@ -238,11 +236,9 @@ cf_left_arrow_key (count, c)
       /* If value to display mapping */
       if (screenfield->fieldspec->valuescount > 1)
         {
+          cf_screenform->nextnavigation = CF_NO_NAVIGATION;;
           cf_prev_value (screenfield);
-          rl_replace_line (screenfield->displayvalue, 0);
-          rl_point = rl_end;
-          rl_mark = 0;
-          return 0;
+	  return rl_newline (count, c);
         }
 #if defined(SELECTFROMCOMPLETION)
       else if (screenfield->completionlist)
@@ -345,21 +341,7 @@ cf_insert_or_cycle_screenfield (count, c)
         {
           if (c == ' ')
             {
-              if (screenfield->currentvalueindex == -1)
-                {
-                  screenfield_setwithindex (screenfield, 0);
-                }
-              else if (screenfield->currentvalueindex <
-                       (screenfield->fieldspec->valuescount - 1))
-                {
-                  screenfield_setwithindex (screenfield,
-                                            screenfield->currentvalueindex +
-                                            1);
-                }
-              else
-                {
-                  screenfield_setwithindex (screenfield, 0);
-                }
+              cf_next_value(screenfield);
             }
           else
             {
@@ -375,10 +357,8 @@ cf_insert_or_cycle_screenfield (count, c)
                   rl_ding ();
                 }
             }
-          rl_replace_line (screenfield->displayvalue, 0);
-          rl_point = rl_end;
-          rl_mark = 0;
-          return 0;
+          cf_screenform->nextnavigation = CF_NO_NAVIGATION;;
+          return rl_newline(count, c);
         }
     }
   /* Otherwise */
@@ -559,8 +539,8 @@ cf_completion (text, start, end)
           else
             {
               sl = NULL;
-              fprintf (stderr, "Invalid completion spec for field %s\n",
-                       field->compspec);
+              builtin_warning ("field %s invalid completion spec '%s'",
+                       field->label, field->compspec);
             }
 
         }
@@ -736,6 +716,7 @@ screenform_editscreenfield (screenform, edit_mode)
   rl_compdisp_func_t *old_completion_display_matches_hook;
   Keymap old_keymap;
   int old_rl_horizontal_scroll_mode;
+  int old_rl_erase_empty_line;
 
   if (!bash_readline_initialized)
     initialize_readline ();
@@ -748,6 +729,7 @@ screenform_editscreenfield (screenform, edit_mode)
   old_attempted_completion_function = rl_attempted_completion_function;
   old_completion_display_matches_hook = rl_completion_display_matches_hook;
   old_rl_horizontal_scroll_mode = _rl_horizontal_scroll_mode;
+  old_rl_erase_empty_line = rl_erase_empty_line;
 
 
   /* Save the startup hook - restored in call back */
@@ -767,17 +749,23 @@ screenform_editscreenfield (screenform, edit_mode)
   /* Set horizontal scroll mode */
   _rl_horizontal_scroll_mode = 1;
 
+  /* Set erase empty line state */
+  rl_erase_empty_line = 0;
+
   /* Read line of input redisplaying field label */
   ret = readline (screenform->currentscreenfield->label);
 
   /* Restore readline state */
+  rl_startup_hook = old_rl_startup_hook;
   rl_attempted_completion_function = old_attempted_completion_function;
   rl_set_keymap (old_keymap);
   _rl_horizontal_scroll_mode = old_rl_horizontal_scroll_mode;
   rl_completion_display_matches_hook = old_completion_display_matches_hook;
+  rl_erase_empty_line = old_rl_erase_empty_line;
 
   /* Set the value using the displayed data */
-  screenfield_setwithdisplayvalue (screenform->currentscreenfield, ret, 0);
+  if (screenform->currentscreenfield->fieldspec->valuescount == 0)
+    screenfield_setwithdisplayvalue (screenform->currentscreenfield, ret, 0);
 }
 
 /*
@@ -795,7 +783,9 @@ screenform_displayvalue ()
 {
   if (cf_screenform->currentscreenfield->value)
     {
+      _rl_erase_entire_line();
       rl_insert_text (cf_screenform->currentscreenfield->displayvalue);
+      rl_point = rl_end = strlen(cf_screenform->currentscreenfield->displayvalue);
       /*
        * If field wider than display width set edit point at start
        * of field
@@ -804,7 +794,6 @@ screenform_displayvalue ()
            + cf_screenform->maxlabelwidth + 3) > cf_screenform->width)
         rl_point = 0;
     }
-  rl_startup_hook = old_rl_startup_hook;
   return 0;
 }
 
@@ -837,8 +826,8 @@ screenfield_setwithindex (screenfield, valueindex)
     }
   else
     {
-      fprintf (stderr,
-               "\n\n\n\n screenfield_setwithindex - invalid index %d where  valuescount is %d\n",
+      programming_error (
+            "screenfield_setwithindex: invalid index %d where valuescount is %d\n",
                valueindex, fieldspec->valuescount);
     }
 
@@ -912,12 +901,6 @@ screenfield_setwithdisplayvalue (screenfield, displayvalue, partial)
 
   fieldspec = screenfield->fieldspec;
 
-  /* Free existing values */
-  FREE(screenfield->value);
-  FREE(screenfield->displayvalue);
-  screenfield->value = 0;
-  screenfield->displayvalue = 0;
-
   /* Set value and default index */
 
   /* If there is a display translation check if value matches */
@@ -931,10 +914,14 @@ screenfield_setwithdisplayvalue (screenfield, displayvalue, partial)
           return;
         }
     }
-  /* Otherwise  set everything as entered */
-  screenfield->currentvalueindex = -1;
-  screenfield->displayvalue = STRDUP (displayvalue);
-  screenfield->value = STRDUP (displayvalue);
+  else
+    {
+      /* Otherwise  set everything as entered */
+      FREE(screenfield->value);
+      FREE(screenfield->displayvalue);
+      screenfield->displayvalue = STRDUP (displayvalue);
+      screenfield->value = STRDUP (displayvalue);
+    }
 }
 
 /* Append a string to a screen field */
@@ -1150,7 +1137,7 @@ screenform_populatefieldsfrompartialcommand (screenform, list)
           /* Note: Don't progress fieldlist */
         }
       else
-        fprintf (stderr, "\n\n\n\nInvalid field type %d\n\n\n\n",
+        programming_error ("screenform_populatefieldsfrompartialcommand: invalid field type %d",
                  fieldspec->fieldtype);
     }
 
@@ -1373,12 +1360,23 @@ screenform_displayhinttext (screenform, edit_mode)
      SCREENFORM *screenform;
      CF_EDIT_MODE edit_mode;
 {
+  SCREENFIELD *screenfield = screenform->currentscreenfield;
 
-  if (screenform->currentscreenfield->fieldspec->hinttext)
+  if (screenfield->fieldspec->hinttext)
     {
-      screenform_hint (screenform,
-                       screenform->currentscreenfield->fieldspec->hinttext,
+      if (screenfield->fieldspec->hinttextcount == 1)
+        {
+          screenform_hint (screenform,
+                       screenfield->fieldspec->hinttext[0],
                        edit_mode);
+        }
+      else
+       {
+          screenform_hint (screenform,
+                       screenfield->fieldspec
+                         ->hinttext[ screenfield->currentvalueindex],
+                       edit_mode);
+       }
     }
 }
 
