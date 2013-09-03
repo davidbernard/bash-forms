@@ -43,15 +43,13 @@
  */
 
 DISPLAYLEVEL *
-displaylevel_create ()
+displaylevel_init (displaylevel)
+      DISPLAYLEVEL *displaylevel;
 {
-  DISPLAYLEVEL *displaylevel;
-
-  displaylevel = (DISPLAYLEVEL *) xmalloc (sizeof (DISPLAYLEVEL));
   memset (displaylevel, 0, sizeof (DISPLAYLEVEL));
 
-  displaylevel->screenfieldlist = (FORMFIELDSPEC **) NULL;
-  displaylevel->generationfieldlist = (FORMFIELDSPEC **) NULL;
+  displaylevel->screenfieldlist = (FIELDSPEC **) NULL;
+  displaylevel->generationfieldlist = (FIELDSPEC **) NULL;
   displaylevel->displaylevel = (char *) NULL;
   displaylevel->fieldcount = 0;
   return displaylevel;
@@ -59,16 +57,13 @@ displaylevel_create ()
 
 /* Dispose of display level */
 void
-displaylevel_dispose (displaylevel)
+displaylevel_clear (displaylevel)
      DISPLAYLEVEL *displaylevel;
 {
 
   FREE (displaylevel->screenfieldlist);
   FREE (displaylevel->generationfieldlist);
   FREE (displaylevel->displaylevel);
-
-  /* Free displaylevel */
-  free (displaylevel);
 }
 
 #endif /* COMMAND_FORMS */

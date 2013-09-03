@@ -68,6 +68,7 @@ fieldspec_create ()
   memset (fieldspec, 0, sizeof (FIELDSPEC));
   fieldspec->refcount = 0;
 
+  fieldspec->name = (char *) NULL;
   fieldspec->fieldtype = CF_FIELD_TYPE_INVALID;
   fieldspec->helptext = (char *) NULL;
   fieldspec->label = (char *) NULL;
@@ -91,22 +92,29 @@ fieldspec_dispose (fieldspec)
   fieldspec->refcount--;
   if (fieldspec->refcount == 0)
     {
+      FREE (fieldspec->name);
       FREE (fieldspec->helptext);
       FREE (fieldspec->label);
       FREE (fieldspec->flag);
       if (fieldspec->values)
         {
-          FREE (fieldspec->values[0]);
+          /* Buffer holding all values */
+    	  FREE (fieldspec->values[0]);
+    	  /* Pointer array */
           free (fieldspec->values);
         }
       if (fieldspec->displayvalues && fieldspec->values != fieldspec->displayvalues)
         {
-          FREE (fieldspec->displayvalues[0]);
+          /* Buffer holding all display values */
+    	  FREE (fieldspec->displayvalues[0]);
+    	  /* Pointer array */
           free (fieldspec->displayvalues);
         }
       if (fieldspec->hinttext)
         {
-          FREE (fieldspec->hinttext[0]);
+          /* Buffer holding all hint text */
+    	  FREE (fieldspec->hinttext[0]);
+    	  /* Pointer array */
           free (fieldspec->hinttext);
         }
       FREE (fieldspec->compspec);
@@ -297,6 +305,7 @@ fieldspec_print (cmd, cs)
   char **pvalue;
   char *string;
   char *x;
+  int i;
 
   printf ("fieldspec ");
 
@@ -321,9 +330,9 @@ fieldspec_print (cmd, cs)
     if (cs->displayvalues && *(cs->displayvalues))
     {
       printf ("+displayvalues ");
-      for (pvalue = cs->displayvalues; *pvalue; pvalue++)
+      for (i = 0; i < cs->valuescount; i++)
         {
-          x = sh_single_quote (*pvalue);
+          x = sh_single_quote (cs->displayvalues[i]);
           printf ("%s ", x);
           free (x);
         }
@@ -331,9 +340,9 @@ fieldspec_print (cmd, cs)
   if (cs->values && *(cs->values))
     {
       printf ("+values ");
-      for (pvalue = cs->values; *pvalue; pvalue++)
+      for (i = 0; i < cs->valuescount; i++)
         {
-          x = sh_single_quote (*pvalue);
+          x = sh_single_quote (cs->values[i]);
           printf ("%s ", x);
           free (x);
         }
@@ -341,14 +350,15 @@ fieldspec_print (cmd, cs)
   if (cs->hinttext && *(cs->hinttext))
     {
       printf ("+hinttext ");
-      for (pvalue = cs->hinttext; *pvalue; pvalue++)
+      for (i = 0; i < cs->hinttextcount; i++)
         {
-          x = sh_single_quote (*pvalue);
+          x = sh_single_quote (cs->hinttext[i]);
           printf ("%s ", x);
           free (x);
         }
     }
-    CONDITIONALSQPRINTSTRING (cs->helptext, "+helptext") printf ("%s\n", cmd);
+    CONDITIONALSQPRINTSTRING (cs->helptext, "+helptext") 
+    printf ("%s\n", cmd);
 
   return (0);
 }

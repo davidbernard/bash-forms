@@ -94,17 +94,6 @@ extern char *_rl_term_kl;
 extern int _rl_horizontal_scroll_mode;
 
 
-static void
-formfieldspec_dispose(formfieldspec)
-    FORMFIELDSPEC *formfieldspec;
-{
-/* XXX */
-  FREE (formfieldspec->fieldspecname);
-  free(formfieldspec);
-  
-}
-
-
 /* Utility Functions */
 
 /* Return whether a string is in a list of strings */
@@ -962,8 +951,8 @@ screenform_populatefieldsfrompartialcommand (screenform, list)
 {
 
   WORD_LIST *l;
-  FORMFIELDSPEC **fieldlist;
-  FORMFIELDSPEC **fl;
+  FIELDSPEC **fieldlist;
+  FIELDSPEC **fl;
   FIELDSPEC *fieldspec;
   SCREENFIELD *screenfield;
   int valueindex;
@@ -974,8 +963,8 @@ screenform_populatefieldsfrompartialcommand (screenform, list)
   fieldlist = screenform->displaylevel->generationfieldlist;
   for (i = 0, l = list->next; l && i < screenform->displaylevel->fieldcount; l = l->next)
     {
-      fieldspec = (*fieldlist)->fieldspec;
-      screenfield = (*fieldlist)->screenfield;
+      fieldspec = *fieldlist;
+      screenfield = screenform_locatescreenfield(screenform, fieldspec);
 
       /*
        * If next fieldspec is a flag then try to match the argument
@@ -992,12 +981,12 @@ screenform_populatefieldsfrompartialcommand (screenform, list)
           found = 0;
 
           for (j = i, fl = fieldlist; j < screenform->displaylevel->fieldcount &&
-               ((*fl)->fieldspec->fieldtype == CF_FIELD_TYPE_FLAG ||
-                (*fl)->fieldspec->fieldtype == CF_FIELD_TYPE_FLAGWITHVALUE);
+               ((*fl)->fieldtype == CF_FIELD_TYPE_FLAG ||
+                (*fl)->fieldtype == CF_FIELD_TYPE_FLAGWITHVALUE);
                fl++, j++)
             {
-              fieldspec = (*fl)->fieldspec;
-              screenfield = (*fieldlist)->screenfield;
+              fieldspec = *fl;
+	      screenfield = screenform_locatescreenfield(screenform, fieldspec);
 
               /* Test for matching flag value */
               if (fieldspec->fieldtype == CF_FIELD_TYPE_FLAGWITHVALUE
@@ -1083,8 +1072,8 @@ screenform_populatefieldsfrompartialcommand (screenform, list)
               /* No matching flags so position to fieldspec  */
               fieldlist = fl;
               i = j;
-              fieldspec = (*fieldlist)->fieldspec;
-              screenfield = (*fieldlist)->screenfield;
+              fieldspec = *fieldlist;
+              screenfield = screenform_locatescreenfield(screenform, fieldspec);
               /* Drop through */
             }
         }
@@ -1104,10 +1093,11 @@ screenform_populatefieldsfrompartialcommand (screenform, list)
                * field apply to that field
                */
               if (*(fieldlist + 1) &&
-                  (*(fieldlist + 1))->fieldspec->fieldtype ==
+                  (*(fieldlist + 1))->fieldtype ==
                   CF_FIELD_TYPE_LAST)
                 {
-                  screenfield_setwithvalue ((*(fieldlist + 1))->screenfield,
+                  screenfield = screenform_locatescreenfield(screenform, *(fieldlist+1));
+                  screenfield_setwithvalue (screenfield, 
                                             l->word->word);
                 }
               else
@@ -1146,8 +1136,8 @@ screenform_populatefieldsfrompartialcommand (screenform, list)
        i < screenform->displaylevel->fieldcount;
        fieldlist++, i++)
     {
-      fieldspec = (*fieldlist)->fieldspec;
-      screenfield = (*fieldlist)->screenfield;
+      fieldspec = *fieldlist;
+      screenfield = screenform_locatescreenfield(screenform, fieldspec);
 
       /* In value not populated then set default value */
       if (screenfield->value == NULL)
@@ -1374,7 +1364,7 @@ screenform_displayhinttext (screenform, edit_mode)
        {
           screenform_hint (screenform,
                        screenfield->fieldspec
-                         ->hinttext[ screenfield->currentvalueindex],
+                         ->hinttext[screenfield->currentvalueindex],
                        edit_mode);
        }
     }
@@ -1500,7 +1490,6 @@ screenform_layout (screenform)
 {
   SCREENFIELD *screenfield;
   FIELDSPEC *field;
-  FORMFIELDSPEC *formfieldspec;
 
   int labelwidth;
   int maxlabelwidth;
@@ -1531,12 +1520,7 @@ screenform_layout (screenform)
        screenform->screenfields; i < screenform->fieldcount; i++, screenfield++)
     {
 
-      formfieldspec = screenform->displaylevel->screenfieldlist[i];
-      field = formfieldspec->fieldspec;
-      /* Cross link screenfield and fieldspec */
-      formfieldspec->screenfield = screenfield;
-      /* Cross link matching generationfieldlist entry */
-      formfieldspec->crosslink->screenfield = screenfield;
+      field = screenform->displaylevel->screenfieldlist[i];
       screenfield->fieldspec = field;
       labelwidth = strlen (field->label);
       if (labelwidth > maxlabelwidth)
@@ -1555,8 +1539,7 @@ screenform_layout (screenform)
   for (i = 0,  screenfield =
        screenform->screenfields; i < screenform->fieldcount; i++, screenfield++)
     {
-      formfieldspec = screenform->displaylevel->screenfieldlist[i];
-      field = formfieldspec->fieldspec;
+      field = screenform->displaylevel->screenfieldlist[i];
       FREE (screenfield->label);
       screenfield->label = xmalloc ((unsigned int) (maxlabelwidth + 3));
       memset (screenfield->label, ' ', (unsigned int) maxlabelwidth);
@@ -1658,6 +1641,24 @@ screenform_dispose (screenform)
   FREE (screenform->screenfields);
   cf_screenform = NULL;
   free (screenform);
+}
+
+/* Locate screen field corresponding to field spec */
+SCREENFIELD *
+screenform_locatescreenfield(screenform, fieldspec)
+      SCREENFORM *screenform;
+      FIELDSPEC *fieldspec;
+{
+  SCREENFIELD *screenfield;
+  int i;
+
+  for (i = 0; i < screenform->fieldcount; i++)
+    {
+      screenfield = &screenform->screenfields[i];
+      if (screenfield->fieldspec == fieldspec)
+        return screenfield;
+    }
+  return (SCREENFIELD *)0;
 }
 
 

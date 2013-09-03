@@ -56,21 +56,9 @@ static void formspec_free __P ((PTR_T));
 
 /* Forward References */
 
-static int string_list_contains __P ((char **, char *));
-
 /* Static Variables */
 
 /* External references to readline globals */
-
-static void
-formfieldspec_dispose(formfieldspec)
-    FORMFIELDSPEC *formfieldspec;
-{
-/* XXX */
-  FREE (formfieldspec->fieldspecname);
-  free(formfieldspec);
-  
-}
 
 
 /* formspec Utilities */
@@ -86,7 +74,7 @@ formspec_create ()
 
   formspec->command = (char *) NULL;
   formspec->displaylevelcount = 0;
-  formspec->displaylevels = (DISPLAYLEVEL **) NULL;
+  formspec->displaylevels = (DISPLAYLEVEL *) NULL;
   return formspec;
 }
 
@@ -95,7 +83,7 @@ void
 formspec_dispose (formspec)
      FORMSPEC *formspec;
 {
-  DISPLAYLEVEL **displaylevel;
+  DISPLAYLEVEL *displaylevel;
   int i;
 
   FREE (formspec->command);
@@ -104,7 +92,7 @@ formspec_dispose (formspec)
       for (i = 0, displaylevel = formspec->displaylevels;
            i < formspec->displaylevelcount ; i++, displaylevel++)
         {
-          displaylevel_dispose (*displaylevel);
+          displaylevel_clear (displaylevel);
         }
       free (formspec->displaylevels);
     }
@@ -232,21 +220,25 @@ formspecs_walk (pfunc)
 
 /* Utility Functions */
 
-/* Return whether a string is in a list of strings */
-static int
-string_list_contains (list, string)
-     char **list;
-     char *string;
+DISPLAYLEVEL *
+formspec_finddisplaylevel(formspec, displaylevelname)
+    FORMSPEC *formspec;
+    char *displaylevelname;
 {
-  while (*list)
-    {
-      if (strcmp (*list, string) == 0)
-        return 1;
-      list++;
-    }
-  return 0;
-}
+  DISPLAYLEVEL *displaylevel;
+  int i;
 
+  for (i = 0, displaylevel = formspec->displaylevels; 
+       i < formspec->displaylevelcount; i++, displaylevel++)
+    {
+      if (strcmp(displaylevel->displaylevel, displaylevelname) == 0)
+        {
+          return displaylevel;
+        }
+
+    }
+    return (DISPLAYLEVEL *)0;
+}
 
 
 /* Field specifier functions */
@@ -289,8 +281,8 @@ formspec_print (formname, form)
      FORMSPEC *form;
 {
 
-  FORMFIELDSPEC **l;
-  DISPLAYLEVEL **d;
+  FIELDSPEC **l;
+  DISPLAYLEVEL *d;
   char *x;
   int i;
   int j;
@@ -299,16 +291,16 @@ formspec_print (formname, form)
 
   for (i = 0, d = form->displaylevels; i < form->displaylevelcount; i++, d++)
     {
-      printf ("+displaylevel=%s ", (*d)->displaylevel);
+      printf ("+displaylevel=%s ", d->displaylevel);
       printf ("+screenfieldlist ");
-      for (j = 0, l = (*d)->screenfieldlist; j < (*d)->fieldcount; j++, l++)
+      for (j = 0, l = d->screenfieldlist; j < d->fieldcount; j++, l++)
         {
-          printf ("%s ", (*l)->fieldspecname);
+          printf ("%s ", (*l)->name);
         }
       printf ("+generationformlist ");
-      for (l = (*d)->generationfieldlist; *l; l++)
+      for (j = 0, l = d->generationfieldlist; j < d->fieldcount; j++, l++)
         {
-          printf ("%s ", (*l)->fieldspecname);
+          printf ("%s ", (*l)->name);
         }
     }
   CONDITIONALSQPRINTSTRING (form->command, "+command")
